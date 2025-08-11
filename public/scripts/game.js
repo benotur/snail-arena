@@ -614,11 +614,7 @@ function updateSnail(dt) {
             case 'unlockMutationWeekly':
                 if (snail.unlockedMutations.length > snail.weeklyProgress[i]) {
                     snail.weeklyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
-                    if (snail.weeklyProgress[i] >= ch.goal) {
-                        snail.weeklyComplete[i] = true;
-                        snail.slimePoints += 25000;
-                        showAlert('Weekly challenge complete! +25000 slime', 'success');
-                    }
+                    if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
                     changed = true;
                 }
                 break;
@@ -731,6 +727,10 @@ function applyHazardEffect(hazard) {
             showAlert('Laser Fence! Turbo disabled for 15s!', 'error');
             break;
     }
+}
+
+function clearHazardEffect() {
+    activeHazardEffect = null;
 }
 
 // --- Timed restoration for hazard effects ---
