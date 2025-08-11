@@ -61,15 +61,21 @@ window.showMutationBook = function() {
     const mutationBookList = document.getElementById('mutation-book-list');
     mutationBookMenu.style.display = 'block';
     mutationBookList.innerHTML = '';
-    mutationDefs.forEach(mut => {
+    // Color palette for mutation titles
+    const colors = [
+        '#ffb300', '#00bcd4', '#8bc34a', '#e91e63', '#9c27b0', '#ff5722', '#03a9f4', '#cddc39', '#f44336', '#009688',
+        '#ffc107', '#673ab7', '#4caf50', '#ff9800', '#2196f3', '#607d8b', '#795548', '#00e676', '#e040fb', '#d50000'
+    ];
+    mutationDefs.forEach((mut, i) => {
         const div = document.createElement('div');
         const unlocked = snail.unlockedMutations && snail.unlockedMutations.includes(mut.id);
         div.className = unlocked ? 'mutation-unlocked' : 'mutation-locked';
         div.style = 'margin-bottom:0;padding:8px 8px;border-radius:8px;min-width:0;word-break:break-word;font-size:13px;';
+        const color = colors[i % colors.length];
         if (unlocked) {
-            div.innerHTML = `<b>${mut.name}</b><br><span style='font-size:12px;'>${mut.desc}</span>`;
+            div.innerHTML = `<b style='color:${color};'>${mut.name}</b><br><span style='font-size:12px;'>${mut.desc}</span>`;
         } else {
-            div.innerHTML = `<b style='color:#ccc;'>${mut.name}</b><br><span style='font-size:12px;color:#ccc;'>${mut.desc}</span><br><span style='font-size:11px;color:#ff4444;'>Locked</span>`;
+            div.innerHTML = `<b style='color:${color};'>${mut.name}</b><br><span style='font-size:12px;color:#ccc;'>${mut.desc}</span><br><span style='font-size:11px;color:#ff4444;'>Locked</span>`;
         }
         mutationBookList.appendChild(div);
     });
@@ -91,7 +97,14 @@ const hazardTypes = [
 // --- Hazard Timer ---
 let hazardTimer = 60;
 let hazardInterval = 60; // seconds
+let currentHazard = null; // Track the currently active hazard for timer display
 
+function getRandomHazardInterval() {
+    const choices = [15, 30, 45, 60];
+    return choices[Math.floor(Math.random() * choices.length)];
+}
+
+// --- Scenery ---
 const scenery = [
     { name: "Garden", color: "#4e8c36" },
     { name: "Sidewalk", color: "#8a989e" },
@@ -280,14 +293,15 @@ function updateSnail(dt) {
         if (snail.turboActive) speed *= 2;
         snail.distance += speed * snail.slimeEfficiency * (dt / 1000);
         snail.slimePoints += speed * snail.slimeEfficiency * (dt / 1000);
-            // Hazard spawn timer
-            if (!window.lastHazardTime) window.lastHazardTime = performance.now();
-            let elapsed = (performance.now() - window.lastHazardTime) / 1000;
-            hazardTimer = Math.max(0, hazardInterval - elapsed);
-            if (elapsed >= hazardInterval) {
+        // Hazard spawn timer
+        if (!window.lastHazardTime) window.lastHazardTime = performance.now();
+        let elapsed = (performance.now() - window.lastHazardTime) / 1000;
+        hazardTimer = Math.max(0, hazardInterval - elapsed);
+        if (elapsed >= hazardInterval) {
             spawnHazard();
             window.lastHazardTime = performance.now();
-                hazardTimer = hazardInterval;
+            hazardInterval = getRandomHazardInterval(); // Set next interval randomly
+            hazardTimer = hazardInterval;
         }
     }
     if (snail.turboActive) {
@@ -302,6 +316,7 @@ function updateSnail(dt) {
         // Simple collision: if snail is near hazard x
         if (Math.abs(snail.distance - hazard.x) < 50) {
             applyHazardEffect(hazard);
+            currentHazard = hazard; // Track for timer display
             hazard.active = false;
         }
     });
@@ -311,11 +326,15 @@ function updateSnail(dt) {
     snail.level = Math.floor(snail.distance / 1000) + 1;
     // Remove expired hazards
     hazards = hazards.filter(h => h.active !== false);
+    // Remove currentHazard if effect is over
+    if (currentHazard && performance.now() - currentHazard.created > currentHazard.duration) {
+        currentHazard = null;
+    }
 }
 
 function spawnHazard() {
     const type = hazardTypes[Math.floor(Math.random()*hazardTypes.length)];
-    hazards.push({
+    const hazardObj = {
         type: type.type,
         name: type.name,
         color: type.color,
@@ -323,8 +342,10 @@ function spawnHazard() {
         x: snail.distance + 300 + Math.random()*200,
         active: true,
         created: performance.now(),
-        duration: 4000 + Math.random()*3000
-    });
+        duration: 12000 + Math.random()*6000 // Effects now last 12-18 seconds for more impact
+    };
+    hazards.push(hazardObj);
+    showAlert(`${type.name} spawned!`, 'info'); // Alert for hazard spawn
 }
 
 function applyHazardEffect(hazard) {
@@ -332,12 +353,12 @@ function applyHazardEffect(hazard) {
         case 'salt':
             snail.speed *= 0.5;
             showAlert('Salt Patch! Slowed down!', 'error');
-            setTimeout(() => { snail.speed /= 0.5; }, 3000);
+            setTimeout(() => { snail.speed /= 0.5; }, hazard.duration);
             break;
         case 'bird':
             snail.isMoving = false;
             showAlert('Bird Attack! Stopped!', 'error');
-            setTimeout(() => { snail.isMoving = true; }, 2000);
+            setTimeout(() => { snail.isMoving = true; }, hazard.duration);
             break;
         case 'puddle':
             snail.distance += 120;
@@ -346,22 +367,22 @@ function applyHazardEffect(hazard) {
         case 'pebble':
             snail.isMoving = false;
             showAlert('Pebble! Blocked!', 'error');
-            setTimeout(() => { snail.isMoving = true; }, 1500);
+            setTimeout(() => { snail.isMoving = true; }, hazard.duration);
             break;
         case 'ants':
             snail.speed *= 0.7;
             showAlert('Ant Swarm! Slowed!', 'error');
-            setTimeout(() => { snail.speed /= 0.7; }, 2500);
+            setTimeout(() => { snail.speed /= 0.7; }, hazard.duration);
             break;
         case 'gum':
             snail.isMoving = false;
             showAlert('Sticky Gum! Wiggle free!', 'error');
-            setTimeout(() => { snail.isMoving = true; }, 1800);
+            setTimeout(() => { snail.isMoving = true; }, hazard.duration);
             break;
         case 'shadow':
             snail.speed *= 0.6;
             showAlert('Shadow Hand! Slowed!', 'error');
-            setTimeout(() => { snail.speed /= 0.6; }, 2200);
+            setTimeout(() => { snail.speed /= 0.6; }, hazard.duration);
             break;
         case 'wind':
             snail.distance -= 80;
@@ -374,7 +395,7 @@ function applyHazardEffect(hazard) {
         case 'laser':
             snail.isMoving = false;
             showAlert('Laser Fence! Wait to cross!', 'error');
-            setTimeout(() => { snail.isMoving = true; }, 1200);
+            setTimeout(() => { snail.isMoving = true; }, hazard.duration);
             break;
     }
 }
@@ -430,13 +451,15 @@ function updateLeaderboard() {
         const lbDiv = document.getElementById('leaderboard-list');
         lbDiv.innerHTML = leaderboard.length ? leaderboard.map((u, i) => `${i+1}. <b>${u.username}</b>: ${u.distance}m <span style='color:#ffd700'>(${toRoman(u.prestige)})</span>`).join('<br>') : 'No entries yet.';
     });
-    leaderboardTimer = 30;
+    // Only update timer display, do not reset timer here
     document.getElementById('leaderboard-timer').innerText = leaderboardTimer;
 }
 setInterval(() => {
     leaderboardTimer--;
     if (leaderboardTimer <= 0) {
         updateLeaderboard();
+        leaderboardTimer = 30;
+        document.getElementById('leaderboard-timer').innerText = leaderboardTimer;
     } else {
         document.getElementById('leaderboard-timer').innerText = leaderboardTimer;
     }
@@ -504,7 +527,7 @@ setInterval(saveGame, 10000);
 window.addEventListener('DOMContentLoaded', () => {
 
     promptUsername();
-    updateLeaderboard();
+    // Do not call updateLeaderboard here, only refresh on timer
     // Restore upgrade button click handlers
         // Hazard Book logic
         const hazardBookBtn = document.getElementById('open-hazard-book');
@@ -732,13 +755,15 @@ function drawGame() {
     // Draw turbo slime counter above snail if active
     if (snail.turboActive && snail.turboTimer > 0) {
         ctx.font = 'bold 18px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#00e6e6';
-        ctx.strokeStyle = '#222';
-        ctx.lineWidth = 2;
-        const turboText = `Turbo: ${Math.ceil(snail.turboTimer/1000)}s`;
-        ctx.strokeText(turboText, canvas.width/2, canvas.height/2 - 85);
-        ctx.fillText(turboText, canvas.width/2, canvas.height/2 - 85);
+        ctx.fillStyle = '#00e676';
+        ctx.fillText(`Turbo: ${Math.ceil(snail.turboTimer/1000)}s`, canvas.width/2, canvas.height/2 - 90);
+    }
+    // Draw hazard effect timer above turbo counter if active
+    if (currentHazard && performance.now() - currentHazard.created < currentHazard.duration) {
+        const timeLeft = Math.ceil((currentHazard.duration - (performance.now() - currentHazard.created))/1000);
+        ctx.font = 'bold 16px monospace';
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillText(`Hazard: ${currentHazard.name} (${timeLeft}s)`, canvas.width/2, canvas.height/2 - 115);
     }
     ctx.restore();
 
