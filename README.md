@@ -41,10 +41,18 @@ To run the game locally, follow these steps:
    ```
 
 ## Gameplay Mechanics
+
 - **Core Loop:** Your snail moves through an endless course, earning slime points for every meter traveled.
-- **Upgrades:** Enhance your snail's speed, stamina, slime efficiency, and more.
+- **Upgrades:** Enhance your snail's speed, slime efficiency, and more. Upgrade prices scale up exponentially and are saved between sessions.
 - **Checkpoints:** Discover special checkpoints that change the scenery.
-- **Prestige System:** Reset your snail for permanent bonuses and unlock new species.
+- **Prestige System:** Reset your snail for permanent bonuses and unlock new species. Each prestige level changes your snail's sprite:
+      - Prestige 0: Base snail (walk)
+      - Prestige 1: walk2
+      - Prestige 2: walk3
+      - Prestige 3: walk4
+      - Prestige 4: walk5
+      - Prestige 5 and above: walk6
+   (Add more sprites to expand visual progression!)
 - **Events:** Participate in daily challenges and compete on the global leaderboard.
 
 ## Contributing

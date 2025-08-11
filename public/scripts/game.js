@@ -422,9 +422,11 @@ function drawGame() {
         sprite = snailSprites.walk;
     }
     // Actually, walk2 should be for prestige 1, walk3 for 2, etc. Let's fix:
-    // Prestige 0: walk, 1: walk2, ..., 4: walk5, 5+: walk6
-    const spriteMap = [snailSprites.walk, snailSprites.walk2, snailSprites.walk3, snailSprites.walk4, snailSprites.walk5, snailSprites.walk6];
+    // Prestige sprite mapping:
+    // 0: walk, 1: walk2, 2: walk3, 3: walk4, 4: walk5, 5 and above: walk6
+    const spriteMap = [snailSprites.walk, snailSprites.walk2, snailSprites.walk3, snailSprites.walk4, snailSprites.walk5];
     sprite = snail.prestige >= 5 ? snailSprites.walk6 : spriteMap[snail.prestige];
+    // If you add more sprites, expand spriteMap and adjust the logic above.
     let spriteW = 32, spriteH = 32, frames = 3;
     ctx.drawImage(
         sprite,
