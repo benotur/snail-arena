@@ -65,6 +65,7 @@
     gap: 0;
     width: 48px;
     height: 48px;
+    margin-bottom: 8px;
 }
 #open-challenge-window span,
 #open-mutation-book span,
@@ -116,7 +117,7 @@
     #upgrade-panel {
         bottom: 4px;
         right: 4px;
-        gap: 3px;
+        gap: 10px;
         padding: 3px 4px;
         border-radius: 8px;
         box-shadow: 0 1px 4px rgba(0,0,0,0.18);
@@ -255,7 +256,7 @@ body {
     bottom: 32px; right: 20px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     pointer-events: auto;
     background: rgba(0,0,0,0.65);
     border-radius: 16px;
@@ -279,6 +280,11 @@ body {
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
     backdrop-filter: blur(4px);
     border: none;
+    width: 100%;
+    justify-content: flex-start;
+}
+.upgrade-btn * {
+    pointer-events: none;
 }
 .upgrade-btn:hover {
     background: rgba(255,255,255,0.10);

@@ -443,52 +443,86 @@ function updateSnail(dt) {
     if (snail.isMoving) {
         let speed = snail.speed;
         if (snail.turboActive) speed *= 2;
+        // Apply hazard effect modifiers
+        if (activeHazardEffect) {
+            switch (activeHazardEffect.type) {
+                case 'salt':
+                    speed *= 0.5;
+                    break;
+                case 'ants':
+                    speed *= 0.7;
+                    break;
+                case 'shadow':
+                    speed *= 0.6;
+                    break;
+                case 'spikedShell': // mutation example
+                    speed *= 0.9;
+                    break;
+            }
+        }
         snail.distance += speed * snail.slimeEfficiency * (dt / 1000);
         snail.slimePoints += speed * snail.slimeEfficiency * (dt / 1000);
     }
-    // Hazard spawn timer (always counts down, even during hazard effect)
+
+    // --- Hazard Timer Logic ---
     if (!window.lastHazardTime) window.lastHazardTime = performance.now();
     let elapsed = (performance.now() - window.lastHazardTime) / 1000;
     hazardTimer = Math.max(0, hazardInterval - elapsed);
+
     // Only spawn hazard if timer reaches zero and no effect is currently active
-        if (hazardTimer <= 0 && (!currentHazard || performance.now() - currentHazard.created > currentHazard.duration) && !bossHazardActive) {
-            hazardCount++;
-            if (hazardCount % 5 === 0) {
-                spawnBossHazard();
-            } else {
-                spawnHazard();
-            }
-            window.lastHazardTime = performance.now();
-            hazardInterval = getRandomHazardInterval();
-            hazardTimer = hazardInterval;
+    if (
+        hazardTimer <= 0 &&
+        !activeHazardEffect &&
+        !bossHazardActive
+    ) {
+        hazardCount++;
+        if (hazardCount % 5 === 0) {
+            spawnBossHazard();
+        } else {
+            spawnHazard();
         }
-        // Boss hazard effect timer
-        if (bossHazardActive && currentBossHazard) {
-            if (performance.now() - currentBossHazard.created > currentBossHazard.duration) {
-                bossHazardActive = false;
-                currentBossHazard = null;
-            }
+        window.lastHazardTime = performance.now();
+        hazardInterval = getRandomHazardInterval();
+        hazardTimer = hazardInterval;
+    }
+
+    // Boss hazard effect timer
+    if (bossHazardActive && currentBossHazard) {
+        if (!currentBossHazard.endTime) {
+            currentBossHazard.endTime = performance.now() + currentBossHazard.duration;
         }
+        if (performance.now() > currentBossHazard.endTime) {
+            bossHazardActive = false;
+            currentBossHazard = null;
+        }
+    }
+
     if (snail.turboActive) {
         snail.turboTimer -= dt;
         if (snail.turboTimer <= 0) {
             snail.turboActive = false;
         }
     }
+
     // Check for hazard collisions/effects
     hazards.forEach(hazard => {
         if (!hazard.active) return;
-        // Simple collision: if snail is near hazard x
-        if (Math.abs(snail.distance - hazard.x) < 50) {
+        if (Math.abs(snail.distance - hazard.x) < 50 && !activeHazardEffect) {
             applyHazardEffect(hazard);
-            currentHazard = hazard; // Track for timer display
             hazard.active = false;
         }
     });
+
+    // Handle hazard effect timer
+    if (activeHazardEffect && performance.now() > activeHazardEffect.endTime) {
+        clearHazardEffect();
+    }
+
     // Checkpoint logic
     snail.checkpoint = Math.floor(snail.distance / checkpointDistance);
     // Level logic
     snail.level = Math.floor(snail.distance / 1000) + 1;
+
     // Challenge progress (live update)
     let changed = false;
     // Daily
@@ -562,6 +596,7 @@ function updateSnail(dt) {
     if (changed) saveGame();
     // Remove expired hazards
     hazards = hazards.filter(h => h.active !== false);
+
     // Remove currentHazard if effect is over
     if (currentHazard && performance.now() - currentHazard.created > currentHazard.duration) {
         currentHazard = null;
@@ -570,6 +605,7 @@ function updateSnail(dt) {
 
 function spawnHazard() {
     const type = hazardTypes[Math.floor(Math.random()*hazardTypes.length)];
+    const duration = 12000 + Math.random()*6000; // 12-18 seconds
     const hazardObj = {
         type: type.type,
         name: type.name,
@@ -578,79 +614,100 @@ function spawnHazard() {
         x: snail.distance + 300 + Math.random()*200,
         active: true,
         created: performance.now(),
-        duration: 12000 + Math.random()*6000 // Effects now last 12-18 seconds for more impact
+        duration: duration
     };
     hazards.push(hazardObj);
-    showAlert(`${type.name} spawned!`, 'info'); // Alert for hazard spawn
-    }
-
-    function spawnBossHazard() {
-        const bossType = bossHazardTypes[Math.floor(Math.random() * bossHazardTypes.length)];
-        currentBossHazard = {
-            type: bossType.type,
-            name: bossType.name,
-            color: bossType.color,
-            effect: bossType.effect,
-            desc: bossType.desc,
-            created: performance.now(),
-            duration: 20000 // Boss hazards last 20s by default
-        };
-        bossHazardActive = true;
-        showAlert(`BOSS HAZARD: ${bossType.name}!\n${bossType.desc}`, 'error');
+    showAlert(`${type.name} spawned!`, 'info');
 }
 
+function spawnBossHazard() {
+    const bossType = bossHazardTypes[Math.floor(Math.random() * bossHazardTypes.length)];
+    currentBossHazard = {
+        type: bossType.type,
+        name: bossType.name,
+        color: bossType.color,
+        effect: bossType.effect,
+        desc: bossType.desc,
+        created: performance.now(),
+        duration: 20000, // Boss hazards last 20s by default
+        endTime: performance.now() + 20000
+    };
+    bossHazardActive = true;
+    showAlert(`BOSS HAZARD: ${bossType.name}!\n${bossType.desc}`, 'error');
+}
+
+// --- Hazard Effect State ---
+let activeHazardEffect = null; // { type, name, effect, endTime, ... }
+
+// --- Hazard Effect Application ---
 function applyHazardEffect(hazard) {
+    // Start effect and set endTime
+    activeHazardEffect = {
+        type: hazard.type,
+        name: hazard.name,
+        effect: hazard.effect,
+        endTime: performance.now() + hazard.duration
+    };
     switch(hazard.type) {
         case 'salt':
-            snail.speed *= 0.5;
             showAlert('Salt Patch! Slowed down!', 'error');
-            setTimeout(() => { snail.speed /= 0.5; }, hazard.duration);
             break;
         case 'bird':
             snail.isMoving = false;
             showAlert('Bird Attack! Stopped!', 'error');
-            setTimeout(() => { snail.isMoving = true; }, hazard.duration);
             break;
         case 'puddle':
             snail.distance += 120;
             showAlert('Puddle! Slid forward!', 'info');
+            clearHazardEffect(); // instant effect
             break;
         case 'pebble':
             snail.isMoving = false;
             showAlert('Pebble! Blocked!', 'error');
-            setTimeout(() => { snail.isMoving = true; }, hazard.duration);
             break;
         case 'ants':
-            snail.speed *= 0.7;
             showAlert('Ant Swarm! Slowed!', 'error');
-            setTimeout(() => { snail.speed /= 0.7; }, hazard.duration);
             break;
         case 'gum':
             snail.isMoving = false;
             showAlert('Sticky Gum! Wiggle free!', 'error');
-            setTimeout(() => { snail.isMoving = true; }, hazard.duration);
             break;
         case 'shadow':
-            snail.speed *= 0.6;
             showAlert('Shadow Hand! Slowed!', 'error');
-            setTimeout(() => { snail.speed /= 0.6; }, hazard.duration);
             break;
         case 'wind':
             snail.distance -= 80;
             showAlert('Wind Gust! Pushed back!', 'error');
+            clearHazardEffect(); // instant effect
             break;
         case 'oil':
             snail.distance += (Math.random() > 0.5 ? 60 : -60);
             showAlert('Oil Spill! Swerved!', 'info');
+            clearHazardEffect(); // instant effect
             break;
         case 'laser':
             snail.isMoving = false;
             showAlert('Laser Fence! Wait to cross!', 'error');
-            setTimeout(() => { snail.isMoving = true; }, hazard.duration);
             break;
     }
 }
 
+function clearHazardEffect() {
+    // Reset snail status if needed
+    if (activeHazardEffect) {
+        switch(activeHazardEffect.type) {
+            case 'bird':
+            case 'pebble':
+            case 'gum':
+            case 'laser':
+                snail.isMoving = true;
+                break;
+        }
+    }
+    activeHazardEffect = null;
+}
+
+// --- UI Update ---
 function updateUI() {
     document.getElementById('distance').innerText = `Distance: ${snail.distance.toFixed(2)} m`;
     document.getElementById('slimePoints').innerText = `Slime: ${Math.floor(snail.slimePoints)}`;
@@ -668,18 +725,10 @@ function updateUI() {
     document.getElementById('prestigeBtn').disabled = !(snail.level >= 120 && snail.slimePoints >= currentCost);
     // Keep emoji icon in prestige button
     document.getElementById('prestigeBtn').innerHTML = `🦑 <span>Prestige: <span style='color:#ffd700'>${toRoman(snail.prestige + 1)}</span><br><span style='font-size:0.85em'>Requirements:</span><br><span style='font-size:0.75em'>Cost: <span style='color:#ffd700'>${currentCost}</span>, Level: <span style='color:#ffd700'>120+</span></span></span>`;
-    // Hazard timer UI (always counts down)
+    // Hazard timer UI in score panel: only show "Next Hazard" countdown
     const hazardTimerDiv = document.getElementById('hazard-timer');
     if (hazardTimerDiv) {
-        if (bossHazardActive && currentBossHazard) {
-            const timeLeft = Math.max(0, Math.ceil((currentBossHazard.duration - (performance.now() - currentBossHazard.created)) / 1000));
-            hazardTimerDiv.innerHTML = `<span style='color:#ff1744;font-weight:bold;'>BOSS: ${currentBossHazard.name}</span> <span style='color:#ffd700;'>${timeLeft}s</span>`;
-        } else if (currentHazard && performance.now() - currentHazard.created < currentHazard.duration) {
-            const timeLeft = Math.max(0, Math.ceil((currentHazard.duration - (performance.now() - currentHazard.created)) / 1000));
-            hazardTimerDiv.innerHTML = `<span style='color:#e74c3c;'>Hazard: ${currentHazard.name}</span> <span style='color:#ffd700;'>${timeLeft}s</span>`;
-        } else {
-            hazardTimerDiv.innerHTML = `Next Hazard: <span style='color:#ffd700;'>${Math.ceil(hazardTimer)}s</span>`;
-        }
+        hazardTimerDiv.innerHTML = `Next Hazard: <span style='color:#ffd700;'>${Math.ceil(hazardTimer)}s</span>`;
     }
     // Challenge UI is now in challenge-window
     const dailyDiv = document.getElementById('dailyChallenge');
@@ -1098,23 +1147,29 @@ function drawGame() {
     ctx.lineWidth = 3;
     ctx.strokeText(`Lv ${snail.level}`, canvas.width/2, canvas.height/2 - 60);
     ctx.fillText(`Lv ${snail.level}`, canvas.width/2, canvas.height/2 - 60);
+
     // Draw turbo slime counter above snail if active
+    let yOffset = -90;
     if (snail.turboActive && snail.turboTimer > 0) {
         ctx.font = 'bold 18px monospace';
         ctx.fillStyle = '#00e676';
-        ctx.fillText(`Turbo: ${Math.ceil(snail.turboTimer/1000)}s`, canvas.width/2, canvas.height/2 - 90);
+        ctx.fillText(`Turbo: ${Math.ceil(snail.turboTimer/1000)}s`, canvas.width/2, canvas.height/2 + yOffset);
+        yOffset -= 25;
     }
+
     // Draw hazard effect timer above turbo counter if active
     if (bossHazardActive && currentBossHazard) {
         ctx.font = 'bold 18px monospace';
         ctx.fillStyle = '#ff1744';
-        const timeLeft = Math.max(0, Math.ceil((currentBossHazard.duration - (performance.now() - currentBossHazard.created)) / 1000));
-        ctx.fillText(`BOSS: ${currentBossHazard.name} (${timeLeft}s)`, canvas.width/2, canvas.height/2 - 115);
-    } else if (currentHazard && performance.now() - currentHazard.created < currentHazard.duration) {
-        const timeLeft = Math.ceil((currentHazard.duration - (performance.now() - currentHazard.created))/1000);
+        const timeLeft = Math.max(0, Math.ceil((currentBossHazard.endTime - performance.now()) / 1000));
+        ctx.fillText(`BOSS: ${currentBossHazard.name} (${timeLeft}s)`, canvas.width/2, canvas.height/2 + yOffset);
+        yOffset -= 25;
+    } else if (activeHazardEffect) {
+        const timeLeft = Math.max(0, Math.ceil((activeHazardEffect.endTime - performance.now()) / 1000));
         ctx.font = 'bold 16px monospace';
         ctx.fillStyle = '#e74c3c';
-        ctx.fillText(`Hazard: ${currentHazard.name} (${timeLeft}s)`, canvas.width/2, canvas.height/2 - 115);
+        ctx.fillText(`Hazard: ${activeHazardEffect.name} (${timeLeft}s)`, canvas.width/2, canvas.height/2 + yOffset);
+        yOffset -= 25;
     }
     ctx.restore();
 
