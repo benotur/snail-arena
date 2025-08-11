@@ -26,10 +26,54 @@ let snail = {
     mutations: [],
     skin: 0,
     level: 1,
+    unlockedMutations: [], // stores mutation ids that are unlocked
 };
 let username = '';
 
 // --- Hazards ---
+// --- Mutations ---
+const mutationDefs = [
+    { id: 'radioactiveShell', name: 'Radioactive Shell', desc: 'Immune to one hazard per run.' },
+    { id: 'regenerativeSlime', name: 'Regenerative Slime', desc: 'Heals from hazard effects over time.' },
+    { id: 'magnetAntennae', name: 'Magnet Antennae', desc: 'Attracts slime points from a wider area.' },
+    { id: 'camouflageSkin', name: 'Camouflage Skin', desc: 'Chance to avoid hazards automatically.' },
+    { id: 'turboGlands', name: 'Turbo Glands', desc: 'Turbo lasts 20% longer.' },
+    { id: 'spikedShell', name: 'Spiked Shell', desc: 'Destroys hazards on contact, but slightly slower.' },
+    { id: 'doubleEyes', name: 'Double Eyes', desc: 'Reveals upcoming hazards briefly.' },
+    { id: 'stickyFoot', name: 'Sticky Foot', desc: 'Immune to slide effects.' },
+    { id: 'miniWings', name: 'Mini Wings', desc: 'Jump over one hazard every minute.' },
+    { id: 'quantumTrail', name: 'Quantum Trail', desc: 'Occasionally teleports forward.' },
+    { id: 'crystalShell', name: 'Crystal Shell', desc: 'Bonus slime from checkpoints.' },
+    { id: 'fireSlime', name: 'Fire Slime', desc: 'Burns away sticky hazards.' },
+    { id: 'frostAntennae', name: 'Frost Antennae', desc: 'Slows down hazards near you.' },
+    { id: 'electricPulse', name: 'Electric Pulse', desc: 'Stuns hazards for a short time.' },
+    { id: 'luckyCharm', name: 'Lucky Charm', desc: 'Higher chance for rare hazards to drop bonuses.' },
+    { id: 'ironShell', name: 'Iron Shell', desc: 'Reduces damage from hazards.' },
+    { id: 'slimeMagnet', name: 'Slime Magnet', desc: 'Doubles slime pickup for 10 seconds after hazard.' },
+    { id: 'shadowCloak', name: 'Shadow Cloak', desc: 'Invisible to hazards for a few seconds after turbo.' },
+    { id: 'bouncyFoot', name: 'Bouncy Foot', desc: 'Hazards bounce off you, but you lose a bit of speed.' },
+    { id: 'timeDilation', name: 'Time Dilation', desc: 'Slows down hazard timer occasionally.' }
+];
+
+// Mutation Book logic (same as Hazard Book)
+window.showMutationBook = function() {
+    const mutationBookMenu = document.getElementById('mutation-book-menu');
+    const mutationBookList = document.getElementById('mutation-book-list');
+    mutationBookMenu.style.display = 'block';
+    mutationBookList.innerHTML = '';
+    mutationDefs.forEach(mut => {
+        const div = document.createElement('div');
+        const unlocked = snail.unlockedMutations && snail.unlockedMutations.includes(mut.id);
+        div.className = unlocked ? 'mutation-unlocked' : 'mutation-locked';
+        div.style = 'margin-bottom:0;padding:8px 8px;border-radius:8px;min-width:0;word-break:break-word;font-size:13px;';
+        if (unlocked) {
+            div.innerHTML = `<b>${mut.name}</b><br><span style='font-size:12px;'>${mut.desc}</span>`;
+        } else {
+            div.innerHTML = `<b style='color:#ccc;'>${mut.name}</b><br><span style='font-size:12px;color:#ccc;'>${mut.desc}</span><br><span style='font-size:11px;color:#ff4444;'>Locked</span>`;
+        }
+        mutationBookList.appendChild(div);
+    });
+};
 let hazards = [];
 const hazardTypes = [
     { type: 'salt', name: 'Salt Patch', color: '#fff', effect: 'slow' },
@@ -352,8 +396,7 @@ function updateUI() {
     // Hazard timer UI
     const hazardTimerDiv = document.getElementById('hazard-timer');
     if (hazardTimerDiv) {
-        let nextHazard = window.nextHazardType || hazardTypes[0];
-        hazardTimerDiv.innerText = `Next Hazard: ${Math.ceil(hazardTimer)}s (${nextHazard.name})`;
+    hazardTimerDiv.innerText = `Next Hazard in: ${Math.ceil(hazardTimer)}s`;
     }
     upgradeDefs.forEach(upg => {
         const btn = document.getElementById(upg.id);
