@@ -30,11 +30,26 @@ let snail = {
 let username = '';
 
 const scenery = [
-    { name: "Garden", color: "#6ab04c" },
-    { name: "Sidewalk", color: "#bdc3c7" },
-    { name: "Desert", color: "#f9ca24" },
-    { name: "Neon City", color: "#4834d4" },
-    { name: "Outer Space", color: "#130f40" }
+    { name: "Garden", color: "#4e8c36" },
+    { name: "Sidewalk", color: "#8a989e" },
+    { name: "Desert", color: "#bfa01c" },
+    { name: "Neon City", color: "#2c1e5a" },
+    { name: "Outer Space", color: "#0a0820" },
+    { name: "Snowfield", color: "#b0c0d8" },
+    { name: "Volcano", color: "#b23c1a" },
+    { name: "Swamp", color: "#145c3c" },
+    { name: "Crystal Cave", color: "#6a8ca1" },
+    { name: "Haunted Woods", color: "#2a2530" },
+    { name: "Candy Land", color: "#b77a7c" },
+    { name: "Moon", color: "#b7b1a3" },
+    { name: "Underwater", color: "#1c5a7d" },
+    { name: "Ruins", color: "#6c665c" },
+    { name: "Sky Islands", color: "#7ac7c7" },
+    { name: "Factory", color: "#353b3c" },
+    { name: "Jungle", color: "#176a36" },
+    { name: "Canyon", color: "#a1502c" },
+    { name: "Metro", color: "#181a1b" },
+    { name: "Dreamscape", color: "#a04c6a" }
 ];
 const checkpointDistance = 5000; // meters per scenery change
 
@@ -89,7 +104,15 @@ let lastTime = performance.now();
 const upgradeDefs = [
     { id: 'speedShell', name: "Speed Shell", baseCost: 50, cost: 50, purchased: 0, desc: "Increases snail speed by 0.5.", action: () => { snail.speed += 0.5; } },
     { id: 'slimeBooster', name: "Slime Booster", baseCost: 40, cost: 40, purchased: 0, desc: "Increases slime efficiency by 0.5.", action: () => { snail.slimeEfficiency += 0.5; } },
-    { id: 'turboSlime', name: "Turbo Slime", baseCost: 2500, cost: 2500, purchased: 0, desc: "Doubles speed for 60 seconds.", action: () => { if (!snail.turboActive) { snail.turboActive = true; snail.turboTimer = 60000; } } },
+    { id: 'turboSlime', name: "Turbo Slime", baseCost: 5000, cost: 5000, purchased: 0, desc: "Doubles speed for 60 seconds. Stackable.", action: () => {
+        // Always allow stacking: add 60s to turbo timer, activate if not active
+        if (!snail.turboActive) {
+            snail.turboActive = true;
+            snail.turboTimer = 60000;
+        } else {
+            snail.turboTimer += 60000;
+        }
+    } },
 ];
 
 // --- Input Handling ---
@@ -210,25 +233,17 @@ function updateUI() {
     document.getElementById('checkpoint').innerText = `Checkpoint: ${checkpointName}`;
     document.getElementById('prestige').innerText = `Prestige: ${snail.prestige > 0 ? toRoman(snail.prestige) : ''}`;
     document.getElementById('mutations').innerText = 'Mutations: ' + (snail.mutations.length ? snail.mutations.join(', ') : 'None');
-    // Turbo Slime activation counter
-    const turboInfo = snail.turboActive ? `Turbo Slime: ${Math.ceil(snail.turboTimer/1000)}s left` : 'Turbo Slime: Ready';
-    if (document.getElementById('turboInfo')) {
-        document.getElementById('turboInfo').innerText = turboInfo;
-    } else {
-        const infoPanel = document.getElementById('info-panel');
-        const turboDiv = document.createElement('div');
-        turboDiv.id = 'turboInfo';
-        turboDiv.className = 'info';
-        turboDiv.innerText = turboInfo;
-        infoPanel.insertBefore(turboDiv, document.getElementById('hazards'));
-    }
+    // Remove Turbo Slime info from info panel
+    const turboDiv = document.getElementById('turboInfo');
+    if (turboDiv) turboDiv.remove();
     const currentCost = getPrestigeCost();
     document.getElementById('prestigeBtn').disabled = !(snail.level >= 120 && snail.slimePoints >= currentCost);
     document.getElementById('prestigeBtn').innerHTML = `Prestige: <span style='color:#ffd700'>${snail.prestige > 0 ? toRoman(snail.prestige) : 'I'}</span><br><span style='font-size:0.85em'>Requirements:</span><br><span style='font-size:0.75em'>Cost: <span style='color:#ffd700'>${currentCost}</span>, Level: <span style='color:#ffd700'>120+</span></span>`;
     upgradeDefs.forEach(upg => {
         const btn = document.getElementById(upg.id);
         btn.innerText = `${upg.name} (${upg.cost} Slime)`;
-        btn.disabled = snail.slimePoints < upg.cost || (upg.id === 'turboSlime' && snail.turboActive);
+        // Only disable if not enough slime
+        btn.disabled = snail.slimePoints < upg.cost;
         // Add hover description
         btn.title = upg.desc;
     });
@@ -335,7 +350,7 @@ window.addEventListener('DOMContentLoaded', () => {
     upgradeDefs.forEach(upg => {
         const btn = document.getElementById(upg.id);
         btn.onclick = () => {
-            if (snail.slimePoints >= upg.cost && !(upg.id === 'turboSlime' && snail.turboActive)) {
+            if (snail.slimePoints >= upg.cost) {
                 snail.slimePoints -= upg.cost;
                 upg.purchased = (upg.purchased || 0) + 1;
                 upg.action();
@@ -345,7 +360,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 showAlert(`Upgraded: ${upg.name}!`, 'success');
                 saveGame(); // Save immediately after upgrade
             } else {
-                showAlert('Not enough slime or turbo already active!', 'error');
+                showAlert('Not enough slime!', 'error');
             }
         };
     });
@@ -401,6 +416,17 @@ function drawGame() {
     ctx.lineWidth = 3;
     ctx.strokeText(`Lv ${snail.level}`, canvas.width/2, canvas.height/2 - 60);
     ctx.fillText(`Lv ${snail.level}`, canvas.width/2, canvas.height/2 - 60);
+    // Draw turbo slime counter above snail if active
+    if (snail.turboActive && snail.turboTimer > 0) {
+        ctx.font = 'bold 18px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#00e6e6';
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 2;
+        const turboText = `Turbo: ${Math.ceil(snail.turboTimer/1000)}s`;
+        ctx.strokeText(turboText, canvas.width/2, canvas.height/2 - 85);
+        ctx.fillText(turboText, canvas.width/2, canvas.height/2 - 85);
+    }
     ctx.restore();
 
     // Snail animation (walk, walk2, walk3, walk4, walk5, walk6 based on prestige)
