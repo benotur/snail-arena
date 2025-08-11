@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snail Arena</title>
+    <link rel="stylesheet" href="styles/main.css">
+        <!-- Firebase App (the core Firebase SDK) -->
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+        <!-- Firebase Realtime Database -->
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+    <div id="alert-container"></div>
+        <div id="username-container" style="position:fixed;top:10px;right:50%;transform:translateX(50%);z-index:200;background:#222;padding:10px 20px;border-radius:8px;box-shadow:0 0 8px #4caf50;display:none;">
+            <label for="username-input" style="color:#fff;font-family:inherit;font-size:15px;">Username:</label>
+            <input id="username-input" type="text" style="font-size:15px;padding:4px 10px;border-radius:4px;border:1px solid #4caf50;">
+            <button id="username-confirm" style="font-size:15px;padding:4px 12px;border-radius:4px;border:1px solid #4caf50;background:#4caf50;color:#222;cursor:pointer;">OK</button>
+        </div>
+    <div id="ui-container">
+        <div id="score-panel">
+            <div id="distance" class="score">Distance: 0 m</div>
+            <div id="slimePoints" class="score">Slime: 0</div>
+            <div id="checkpoint" class="score">Checkpoint: Garden</div>
+            <div id="prestige" class="score">Prestige: 0</div>
+        </div>
+        <div id="upgrade-panel">
+            <button id="speedShell" class="upgrade-btn">Speed Shell</button>
+            <button id="slimeBooster" class="upgrade-btn">Slime Booster</button>
+            <button id="turboSlime" class="upgrade-btn">Turbo Slime</button>
+        </div>
+        <div id="info-panel">
+            <div id="mutations" class="info">Mutations: None</div>
+            <div id="hazards" class="info">Hazards: Coming soon!</div>
+            <div id="dailyChallenge" class="info">Daily Challenge: Coming soon!</div>
+        </div>
+        <button id="prestigeBtn" class="prestige-btn">Prestige: New Species</button>
+    </div>
+    <div id="leaderboard-box">
+        <div id="leaderboard-title"><b>Leaderboard</b></div>
+        <div id="leaderboard-list">Loading...</div>
+        <div id="leaderboard-refresh">Refresh in <span id="leaderboard-timer">10</span>s</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script src="scripts/game.js"></script>
+</body>
+</html>

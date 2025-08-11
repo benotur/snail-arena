@@ -1,0 +1,24 @@
+{
+  "name": "snail-racer-infinite-trail",
+  "version": "1.0.0",
+  "description": "A mobile web game where players race snails through various environments, earning slime points and upgrades.",
+  "main": "public/scripts/game.js",
+  "scripts": {
+    "start": "firebase serve",
+    "build": "echo 'Build step not defined'",
+    "deploy": "firebase deploy"
+  },
+  "dependencies": {
+    "firebase": "^9.0.0"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "game",
+    "mobile",
+    "snail",
+    "racer",
+    "firebase"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
