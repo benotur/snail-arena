@@ -805,15 +805,19 @@ function updateUI() {
     });
 }
 
-// --- Leaderboard ---
-let leaderboardTimer = 15;
 function toRoman(num) {
     if (num <= 0) return '';
     const romans = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX'];
     return romans[num-1] || num;
 }
 
+// --- Leaderboard ---
+let leaderboardTimer = 15;
+let leaderboardNeedsUpdate = true;
+
 function updateLeaderboard() {
+    if (!leaderboardNeedsUpdate) return;
+    leaderboardNeedsUpdate = false;
     database.ref('users').orderByChild('distance').limitToLast(10).once('value').then(snapshot => {
         const leaderboard = [];
         snapshot.forEach(child => {
@@ -834,6 +838,7 @@ function updateLeaderboard() {
 setInterval(() => {
     leaderboardTimer--;
     if (leaderboardTimer <= 0) {
+        leaderboardNeedsUpdate = true;
         updateLeaderboard();
         leaderboardTimer = 15;
         document.getElementById('leaderboard-timer').innerText = leaderboardTimer;
