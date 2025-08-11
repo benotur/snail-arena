@@ -101,26 +101,26 @@ let username = '';
 // --- Hazards ---
 // --- Mutations ---
 const mutationDefs = [
-    { id: 'radioactiveShell', name: 'Radioactive Shell', desc: 'Immune to one hazard per run.' },
-    { id: 'regenerativeSlime', name: 'Regenerative Slime', desc: 'Heals from hazard effects over time.' },
-    { id: 'magnetAntennae', name: 'Magnet Antennae', desc: 'Attracts slime points from a wider area.' },
-    { id: 'camouflageSkin', name: 'Camouflage Skin', desc: 'Chance to avoid hazards automatically.' },
+    { id: 'radioactiveShell', name: 'Radioactive Shell', desc: 'Immune to the first hazard per run. (No effect from first hazard)' },
+    { id: 'regenerativeSlime', name: 'Regenerative Slime', desc: 'Restores 1000 slime after each hazard.' },
+    { id: 'magnetAntennae', name: 'Magnet Antennae', desc: 'Slime pickups radius +50%.' },
+    { id: 'camouflageSkin', name: 'Camouflage Skin', desc: '30% chance to avoid hazard effects.' },
     { id: 'turboGlands', name: 'Turbo Glands', desc: 'Turbo lasts 20% longer.' },
-    { id: 'spikedShell', name: 'Spiked Shell', desc: 'Destroys hazards on contact, but slightly slower.' },
-    { id: 'doubleEyes', name: 'Double Eyes', desc: 'Reveals upcoming hazards briefly.' },
-    { id: 'stickyFoot', name: 'Sticky Foot', desc: 'Immune to slide effects.' },
-    { id: 'miniWings', name: 'Mini Wings', desc: 'Jump over one hazard every minute.' },
-    { id: 'quantumTrail', name: 'Quantum Trail', desc: 'Occasionally teleports forward.' },
-    { id: 'crystalShell', name: 'Crystal Shell', desc: 'Bonus slime from checkpoints.' },
-    { id: 'fireSlime', name: 'Fire Slime', desc: 'Burns away sticky hazards.' },
-    { id: 'frostAntennae', name: 'Frost Antennae', desc: 'Slows down hazards near you.' },
-    { id: 'electricPulse', name: 'Electric Pulse', desc: 'Stuns hazards for a short time.' },
-    { id: 'luckyCharm', name: 'Lucky Charm', desc: 'Higher chance for rare hazards to drop bonuses.' },
-    { id: 'ironShell', name: 'Iron Shell', desc: 'Reduces damage from hazards.' },
-    { id: 'slimeMagnet', name: 'Slime Magnet', desc: 'Doubles slime pickup for 10 seconds after hazard.' },
-    { id: 'shadowCloak', name: 'Shadow Cloak', desc: 'Invisible to hazards for a few seconds after turbo.' },
-    { id: 'bouncyFoot', name: 'Bouncy Foot', desc: 'Hazards bounce off you, but you lose a bit of speed.' },
-    { id: 'timeDilation', name: 'Time Dilation', desc: 'Slows down hazard timer occasionally.' }
+    { id: 'spikedShell', name: 'Spiked Shell', desc: 'Destroys hazards on contact, speed -10%.' },
+    { id: 'doubleEyes', name: 'Double Eyes', desc: 'See hazards 5s before they spawn.' },
+    { id: 'stickyFoot', name: 'Sticky Foot', desc: 'Immune to Puddle and Gum hazards.' },
+    { id: 'miniWings', name: 'Mini Wings', desc: 'Skip 1 hazard every 60s.' },
+    { id: 'quantumTrail', name: 'Quantum Trail', desc: 'Teleport forward 300m every 90s.' },
+    { id: 'crystalShell', name: 'Crystal Shell', desc: '+2000 slime at each checkpoint.' },
+    { id: 'fireSlime', name: 'Fire Slime', desc: 'Destroys Gum instantly.' },
+    { id: 'frostAntennae', name: 'Frost Antennae', desc: 'Hazards near snail move 40% slower.' },
+    { id: 'electricPulse', name: 'Electric Pulse', desc: 'Stuns hazards for 5s.' },
+    { id: 'luckyCharm', name: 'Lucky Charm', desc: 'Rare hazards drop double rewards.' },
+    { id: 'ironShell', name: 'Iron Shell', desc: 'Hazard effects reduced by 30%.' },
+    { id: 'slimeMagnet', name: 'Slime Magnet', desc: 'Double slime pickup for 10s after hazard.' },
+    { id: 'shadowCloak', name: 'Shadow Cloak', desc: 'Immune to hazards for 5s after turbo.' },
+    { id: 'bouncyFoot', name: 'Bouncy Foot', desc: 'Hazards bounce off, speed -15%.' },
+    { id: 'timeDilation', name: 'Time Dilation', desc: 'Hazard timer +20% every 2 minutes.' }
 ];
 
 // Mutation Book logic (same as Hazard Book)
@@ -129,7 +129,6 @@ window.showMutationBook = function() {
     const mutationBookList = document.getElementById('mutation-book-list');
     mutationBookMenu.style.display = 'block';
     mutationBookList.innerHTML = '';
-    // Color palette for mutation titles
     const colors = [
         '#ffb300', '#00bcd4', '#8bc34a', '#e91e63', '#9c27b0', '#ff5722', '#03a9f4', '#cddc39', '#f44336', '#009688',
         '#ffc107', '#673ab7', '#4caf50', '#ff9800', '#2196f3', '#607d8b', '#795548', '#00e676', '#e040fb', '#d50000'
@@ -138,13 +137,13 @@ window.showMutationBook = function() {
         const div = document.createElement('div');
         const unlocked = snail.unlockedMutations && snail.unlockedMutations.includes(mut.id);
         div.className = unlocked ? 'mutation-unlocked' : 'mutation-locked';
-        div.style = 'margin-bottom:0;padding:8px 8px;border-radius:8px;min-width:0;word-break:break-word;font-size:13px;';
+        div.style = 'margin-bottom:0;padding:8px 8px;border-radius:8px;min-width:0;word-break:break-word;font-size:13px;cursor:pointer;';
         const color = colors[i % colors.length];
-        if (unlocked) {
-            div.innerHTML = `<b style='color:${color};'>${mut.name}</b><br><span style='font-size:12px;color:#ccc;'>${mut.desc}</span><br><span style='font-size:11px;color:#00e676;'>Unlocked</span>`;
-        } else {
-            div.innerHTML = `<b style='color:${color};'>${mut.name}</b><br><span style='font-size:12px;color:#ccc;'>${mut.desc}</span><br><span style='font-size:11px;color:#ff4444;'>Locked</span>`;
-        }
+        div.title = mut.desc;
+        div.innerHTML = `<b style='color:${color};'>${mut.name}</b><br><span style='font-size:12px;color:#ccc;'>${mut.desc}</span><br><span style='font-size:11px;color:${unlocked ? "#00e676" : "#ff4444"};'>${unlocked ? "Unlocked" : "Locked"}</span>`;
+        div.onmouseenter = function() { div.style.background = "rgba(255,255,255,0.08)"; };
+        div.onmouseleave = function() { div.style.background = ""; };
+        div.onclick = function() { showAlert(div.title, 'info'); };
         mutationBookList.appendChild(div);
     });
 };
@@ -532,28 +531,44 @@ function updateSnail(dt) {
             case 'collectSlimeDaily':
                 if (snail.slimePoints > snail.dailyProgress[i]) {
                     snail.dailyProgress[i] = Math.min(snail.slimePoints, ch.goal);
-                    if (snail.dailyProgress[i] >= ch.goal) snail.dailyComplete[i] = true;
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
                     changed = true;
                 }
                 break;
             case 'reachDistanceDaily':
                 if (snail.distance > snail.dailyProgress[i]) {
                     snail.dailyProgress[i] = Math.min(snail.distance, ch.goal);
-                    if (snail.dailyProgress[i] >= ch.goal) snail.dailyComplete[i] = true;
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
                     changed = true;
                 }
                 break;
             case 'prestigeDaily':
                 if (snail.prestige > snail.dailyProgress[i]) {
                     snail.dailyProgress[i] = Math.min(snail.prestige, ch.goal);
-                    if (snail.dailyProgress[i] >= ch.goal) snail.dailyComplete[i] = true;
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
                     changed = true;
                 }
                 break;
             case 'unlockMutationDaily':
                 if (snail.unlockedMutations.length > snail.dailyProgress[i]) {
                     snail.dailyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
-                    if (snail.dailyProgress[i] >= ch.goal) snail.dailyComplete[i] = true;
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
                     changed = true;
                 }
                 break;
@@ -566,28 +581,44 @@ function updateSnail(dt) {
             case 'collectSlimeWeekly':
                 if (snail.slimePoints > snail.weeklyProgress[i]) {
                     snail.weeklyProgress[i] = Math.min(snail.slimePoints, ch.goal);
-                    if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
+                    if (snail.weeklyProgress[i] >= ch.goal) {
+                        snail.weeklyComplete[i] = true;
+                        snail.slimePoints += 25000;
+                        showAlert('Weekly challenge complete! +25000 slime', 'success');
+                    }
                     changed = true;
                 }
                 break;
             case 'reachDistanceWeekly':
                 if (snail.distance > snail.weeklyProgress[i]) {
                     snail.weeklyProgress[i] = Math.min(snail.distance, ch.goal);
-                    if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
+                    if (snail.weeklyProgress[i] >= ch.goal) {
+                        snail.weeklyComplete[i] = true;
+                        snail.slimePoints += 25000;
+                        showAlert('Weekly challenge complete! +25000 slime', 'success');
+                    }
                     changed = true;
                 }
                 break;
             case 'prestigeWeekly':
                 if (snail.prestige > snail.weeklyProgress[i]) {
                     snail.weeklyProgress[i] = Math.min(snail.prestige, ch.goal);
-                    if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
+                    if (snail.weeklyProgress[i] >= ch.goal) {
+                        snail.weeklyComplete[i] = true;
+                        snail.slimePoints += 25000;
+                        showAlert('Weekly challenge complete! +25000 slime', 'success');
+                    }
                     changed = true;
                 }
                 break;
             case 'unlockMutationWeekly':
                 if (snail.unlockedMutations.length > snail.weeklyProgress[i]) {
                     snail.weeklyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
-                    if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
+                    if (snail.weeklyProgress[i] >= ch.goal) {
+                        snail.weeklyComplete[i] = true;
+                        snail.slimePoints += 25000;
+                        showAlert('Weekly challenge complete! +25000 slime', 'success');
+                    }
                     changed = true;
                 }
                 break;
@@ -650,61 +681,266 @@ function applyHazardEffect(hazard) {
     };
     switch(hazard.type) {
         case 'salt':
-            showAlert('Salt Patch! Slowed down!', 'error');
+            snail.speed *= 0.5;
+            snail.speedShellDisabledUntil = performance.now() + 30000;
+            showAlert('Salt Patch! Speed halved, Speed Shell disabled for 30s!', 'error');
             break;
         case 'bird':
             snail.isMoving = false;
-            showAlert('Bird Attack! Stopped!', 'error');
+            snail.slimePoints = Math.floor(snail.slimePoints * 0.9);
+            snail.movementDisabledUntil = performance.now() + 10000;
+            showAlert('Bird Attack! Lost 10% slime, stopped for 10s!', 'error');
             break;
         case 'puddle':
             snail.distance += 120;
-            showAlert('Puddle! Slid forward!', 'info');
-            clearHazardEffect(); // instant effect
+            showAlert('Puddle! Slid forward 120m!', 'info');
+            clearHazardEffect();
             break;
         case 'pebble':
             snail.isMoving = false;
-            showAlert('Pebble! Blocked!', 'error');
+            snail.movementDisabledUntil = performance.now() + 8000;
+            showAlert('Pebble! Blocked for 8s!', 'error');
             break;
         case 'ants':
-            showAlert('Ant Swarm! Slowed!', 'error');
+            snail.slimeEfficiency *= 0.5;
+            snail.efficiencyRestoreAt = performance.now() + 60000;
+            showAlert('Ant Swarm! Slime efficiency halved for 60s!', 'error');
             break;
         case 'gum':
-            snail.isMoving = false;
-            showAlert('Sticky Gum! Wiggle free!', 'error');
+            snail.upgradesDisabledUntil = performance.now() + 20000;
+            showAlert('Sticky Gum! Upgrades disabled for 20s!', 'error');
             break;
         case 'shadow':
-            showAlert('Shadow Hand! Slowed!', 'error');
+            snail.speed *= 0.5;
+            snail.shadowSlowRestoreAt = performance.now() + 40000;
+            showAlert('Shadow Hand! Speed halved for 40s!', 'error');
             break;
         case 'wind':
-            snail.distance -= 80;
-            showAlert('Wind Gust! Pushed back!', 'error');
-            clearHazardEffect(); // instant effect
+            snail.distance = Math.max(0, snail.distance - 200);
+            showAlert('Wind Gust! Pushed back 200m!', 'error');
+            clearHazardEffect();
             break;
         case 'oil':
-            snail.distance += (Math.random() > 0.5 ? 60 : -60);
-            showAlert('Oil Spill! Swerved!', 'info');
-            clearHazardEffect(); // instant effect
+            const move = Math.random() > 0.5 ? 100 : -100;
+            snail.distance = Math.max(0, snail.distance + move);
+            showAlert(`Oil Spill! Swerved ${move > 0 ? '+' : ''}${move}m!`, 'info');
+            clearHazardEffect();
             break;
         case 'laser':
-            snail.isMoving = false;
-            showAlert('Laser Fence! Wait to cross!', 'error');
+            snail.turboDisabledUntil = performance.now() + 15000;
+            showAlert('Laser Fence! Turbo disabled for 15s!', 'error');
             break;
     }
 }
 
-function clearHazardEffect() {
-    // Reset snail status if needed
-    if (activeHazardEffect) {
-        switch(activeHazardEffect.type) {
-            case 'bird':
-            case 'pebble':
-            case 'gum':
-            case 'laser':
-                snail.isMoving = true;
-                break;
+// --- Timed restoration for hazard effects ---
+function updateSnail(dt) {
+    if (snail.isMoving) {
+        let speed = snail.speed;
+        if (snail.turboActive) speed *= 2;
+        // Apply hazard effect modifiers
+        if (activeHazardEffect) {
+            switch (activeHazardEffect.type) {
+                case 'salt':
+                    speed *= 0.5;
+                    break;
+                case 'ants':
+                    speed *= 0.7;
+                    break;
+                case 'shadow':
+                    speed *= 0.6;
+                    break;
+                case 'spikedShell': // mutation example
+                    speed *= 0.9;
+                    break;
+            }
+        }
+        snail.distance += speed * snail.slimeEfficiency * (dt / 1000);
+        snail.slimePoints += speed * snail.slimeEfficiency * (dt / 1000);
+    }
+
+    // --- Hazard Timer Logic ---
+    if (!window.lastHazardTime) window.lastHazardTime = performance.now();
+    let elapsed = (performance.now() - window.lastHazardTime) / 1000;
+    hazardTimer = Math.max(0, hazardInterval - elapsed);
+
+    // Only spawn hazard if timer reaches zero and no effect is currently active
+    if (
+        hazardTimer <= 0 &&
+        !activeHazardEffect &&
+        !bossHazardActive
+    ) {
+        hazardCount++;
+        if (hazardCount % 5 === 0) {
+            spawnBossHazard();
+        } else {
+            spawnHazard();
+        }
+        window.lastHazardTime = performance.now();
+        hazardInterval = getRandomHazardInterval();
+        hazardTimer = hazardInterval;
+    }
+
+    // Boss hazard effect timer
+    if (bossHazardActive && currentBossHazard) {
+        if (!currentBossHazard.endTime) {
+            currentBossHazard.endTime = performance.now() + currentBossHazard.duration;
+        }
+        if (performance.now() > currentBossHazard.endTime) {
+            bossHazardActive = false;
+            currentBossHazard = null;
         }
     }
-    activeHazardEffect = null;
+
+    if (snail.turboActive) {
+        snail.turboTimer -= dt;
+        if (snail.turboTimer <= 0) {
+            snail.turboActive = false;
+        }
+    }
+
+    // Check for hazard collisions/effects
+    hazards.forEach(hazard => {
+        if (!hazard.active) return;
+        if (Math.abs(snail.distance - hazard.x) < 50 && !activeHazardEffect) {
+            applyHazardEffect(hazard);
+            hazard.active = false;
+        }
+    });
+
+    // Handle hazard effect timer
+    if (activeHazardEffect && performance.now() > activeHazardEffect.endTime) {
+        clearHazardEffect();
+    }
+
+    // Checkpoint logic
+    snail.checkpoint = Math.floor(snail.distance / checkpointDistance);
+    // Level logic
+    snail.level = Math.floor(snail.distance / 1000) + 1;
+
+    // Challenge progress (live update)
+    let changed = false;
+    // Daily
+    snail.dailyChallenges.forEach((ch, i) => {
+        if (snail.dailyComplete[i]) return;
+        switch (ch.id) {
+            case 'collectSlimeDaily':
+                if (snail.slimePoints > snail.dailyProgress[i]) {
+                    snail.dailyProgress[i] = Math.min(snail.slimePoints, ch.goal);
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'reachDistanceDaily':
+                if (snail.distance > snail.dailyProgress[i]) {
+                    snail.dailyProgress[i] = Math.min(snail.distance, ch.goal);
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'prestigeDaily':
+                if (snail.prestige > snail.dailyProgress[i]) {
+                    snail.dailyProgress[i] = Math.min(snail.prestige, ch.goal);
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'unlockMutationDaily':
+                if (snail.unlockedMutations.length > snail.dailyProgress[i]) {
+                    snail.dailyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+        }
+    });
+    // Weekly
+    snail.weeklyChallenges.forEach((ch, i) => {
+        if (snail.weeklyComplete[i]) return;
+        switch (ch.id) {
+            case 'collectSlimeWeekly':
+                if (snail.slimePoints > snail.weeklyProgress[i]) {
+                    snail.weeklyProgress[i] = Math.min(snail.slimePoints, ch.goal);
+                    if (snail.weeklyProgress[i] >= ch.goal) {
+                        snail.weeklyComplete[i] = true;
+                        snail.slimePoints += 25000;
+                        showAlert('Weekly challenge complete! +25000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'reachDistanceWeekly':
+                if (snail.distance > snail.weeklyProgress[i]) {
+                    snail.weeklyProgress[i] = Math.min(snail.distance, ch.goal);
+                    if (snail.weeklyProgress[i] >= ch.goal) {
+                        snail.weeklyComplete[i] = true;
+                        snail.slimePoints += 25000;
+                        showAlert('Weekly challenge complete! +25000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'prestigeWeekly':
+                if (snail.prestige > snail.weeklyProgress[i]) {
+                    snail.weeklyProgress[i] = Math.min(snail.prestige, ch.goal);
+                    if (snail.weeklyProgress[i] >= ch.goal) {
+                        snail.weeklyComplete[i] = true;
+                        snail.slimePoints += 25000;
+                        showAlert('Weekly challenge complete! +25000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'unlockMutationWeekly':
+                if (snail.unlockedMutations.length > snail.weeklyProgress[i]) {
+                    snail.weeklyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
+                    if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
+                    changed = true;
+                }
+                break;
+        }
+    });
+    if (changed) saveGame();
+    // Remove expired hazards
+    hazards = hazards.filter(h => h.active !== false);
+
+    // Remove currentHazard if effect is over
+    if (currentHazard && performance.now() - currentHazard.created > currentHazard.duration) {
+        currentHazard = null;
+    }
+}
+
+// --- Hazard Description ---
+function getHazardDescription(type) {
+    switch(type) {
+        case 'salt': return 'Halves speed and disables Speed Shell for 30s.';
+        case 'bird': return 'Steals 10% slime and disables movement for 10s.';
+        case 'puddle': return 'Slides forward 120m.';
+        case 'pebble': return 'Blocks movement for 8s.';
+        case 'ants': return 'Halves slime efficiency for 60s.';
+        case 'gum': return 'Disables upgrades for 20s.';
+        case 'shadow': return 'Halves speed for 40s.';
+        case 'wind': return 'Pushes back 200m.';
+        case 'oil': return 'Randomly moves -100m or +100m.';
+        case 'laser': return 'Disables turbo for 15s.';
+        default: return '';
+    }
 }
 
 // --- UI Update ---
@@ -971,16 +1207,16 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function getHazardDescription(type) {
         switch(type) {
-            case 'salt': return 'Slows your snail and drains slime.';
-            case 'bird': return 'A bird swoops down and stops you briefly.';
-            case 'puddle': return 'Slides your snail forward uncontrollably.';
-            case 'pebble': return 'Blocks your path, forcing a short wait.';
-            case 'ants': return 'Ants crawl over you, reducing speed.';
-            case 'gum': return 'Sticky gum stops you, wiggle free!';
-            case 'shadow': return 'A shadow hand slows your progress.';
-            case 'wind': return 'Wind gust pushes you backward.';
-            case 'oil': return 'Oil spill makes you swerve randomly.';
-            case 'laser': return 'Laser fence activates, wait to cross.';
+            case 'salt': return 'Halves speed and disables Speed Shell for 30s.';
+            case 'bird': return 'Steals 10% slime and disables movement for 10s.';
+            case 'puddle': return 'Slides forward 120m.';
+            case 'pebble': return 'Blocks movement for 8s.';
+            case 'ants': return 'Halves slime efficiency for 60s.';
+            case 'gum': return 'Disables upgrades for 20s.';
+            case 'shadow': return 'Halves speed for 40s.';
+            case 'wind': return 'Pushes back 200m.';
+            case 'oil': return 'Randomly moves -100m or +100m.';
+            case 'laser': return 'Disables turbo for 15s.';
             default: return '';
         }
     }
