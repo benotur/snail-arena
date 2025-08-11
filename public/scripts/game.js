@@ -659,14 +659,15 @@ function updateUI() {
     document.getElementById('checkpoint').innerText = `Checkpoint: ${checkpointName}`;
     document.getElementById('prestige').innerText = `Prestige: ${toRoman(snail.prestige)}`;
     // Remove mutation display from info panel
-    const mutDiv = document.getElementById('mutations');
-    if (mutDiv) mutDiv.style.display = 'none';
+    // const mutDiv = document.getElementById('mutations');
+    // if (mutDiv) mutDiv.style.display = 'none';
     // Remove Turbo Slime info from info panel
     const turboDiv = document.getElementById('turboInfo');
     if (turboDiv) turboDiv.remove();
     const currentCost = getPrestigeCost();
     document.getElementById('prestigeBtn').disabled = !(snail.level >= 120 && snail.slimePoints >= currentCost);
-    document.getElementById('prestigeBtn').innerHTML = `Prestige: <span style='color:#ffd700'>${toRoman(snail.prestige + 1)}</span><br><span style='font-size:0.85em'>Requirements:</span><br><span style='font-size:0.75em'>Cost: <span style='color:#ffd700'>${currentCost}</span>, Level: <span style='color:#ffd700'>120+</span></span>`;
+    // Keep emoji icon in prestige button
+    document.getElementById('prestigeBtn').innerHTML = `🦑 <span>Prestige: <span style='color:#ffd700'>${toRoman(snail.prestige + 1)}</span><br><span style='font-size:0.85em'>Requirements:</span><br><span style='font-size:0.75em'>Cost: <span style='color:#ffd700'>${currentCost}</span>, Level: <span style='color:#ffd700'>120+</span></span></span>`;
     // Hazard timer UI (always counts down)
     const hazardTimerDiv = document.getElementById('hazard-timer');
     if (hazardTimerDiv) {
@@ -726,10 +727,12 @@ function updateUI() {
     }
     upgradeDefs.forEach(upg => {
         const btn = document.getElementById(upg.id);
-        btn.innerText = `${upg.name} (${upg.cost} Slime)`;
+        // Keep emoji icon in button text
+        if (upg.id === 'speedShell') btn.innerHTML = `🐚 <span>${upg.name} (${upg.cost} Slime)</span>`;
+        else if (upg.id === 'slimeBooster') btn.innerHTML = `🧪 <span>${upg.name} (${upg.cost} Slime)</span>`;
+        else if (upg.id === 'turboSlime') btn.innerHTML = `⚡ <span>${upg.name} (${upg.cost} Slime)</span>`;
         // Only disable if not enough slime
         btn.disabled = snail.slimePoints < upg.cost;
-        // Add hover description
         btn.title = upg.desc;
     });
 }
