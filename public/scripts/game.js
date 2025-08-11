@@ -84,17 +84,17 @@ function getNextDailyReset() {
     return estNow.getTime();
 }
 function getNextWeeklyReset() {
-    // Next Monday midnight EST
+    // Next Monday 00:00:00am EST (add 1 second to Sunday 11:59:59pm)
     const now = new Date();
     const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
     const estOffset = -5;
     const estNow = new Date(utc + estOffset * 3600000);
-    estNow.setHours(0,0,0,0);
-    // Find next Monday
+    estNow.setHours(23,59,59,0);
+    // Find next Sunday
     const day = estNow.getDay();
-    const daysToMonday = (8 - day) % 7;
-    estNow.setDate(estNow.getDate() + daysToMonday);
-    return estNow.getTime();
+    const daysToSunday = (7 - day) % 7;
+    estNow.setDate(estNow.getDate() + daysToSunday);
+    return estNow.getTime() + 1000;
 }
 let username = '';
 
@@ -712,15 +712,15 @@ function updateUI() {
     function getTimeLeft(resetTs, showDay) {
         const now = Date.now();
         let sec = Math.max(0, Math.floor((resetTs - now) / 1000));
-        const h = Math.floor(sec / 3600);
+        const d = Math.floor(sec / 86400);
+        const h = Math.floor((sec % 86400) / 3600);
         const m = Math.floor((sec % 3600) / 60);
         const s = sec % 60;
         if (showDay) {
-            // Show day of week for weekly reset
             const resetDate = new Date(resetTs);
             const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
             const dayStr = days[resetDate.getDay()];
-            return `${h}h ${m}m ${s}s (${dayStr}, CET)`;
+            return `${d}d ${h}h ${m}m ${s}s (${dayStr}, CET)`;
         }
         return `${h}h ${m}m ${s}s`;
     }

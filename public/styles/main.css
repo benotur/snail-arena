@@ -1,9 +1,9 @@
 /* Challenge Window */
  #challenge-window {
-    position: fixed;
-    top: 47%;
-    left: 14px;
-    transform: translateY(-47%);
+     position: fixed;
+     top: 32%;
+     left: 14px;
+     transform: translateY(-32%);
     z-index: 210;
     background: rgba(20,20,20,0.98);
     border-radius: 12px;
