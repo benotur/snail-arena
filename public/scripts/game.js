@@ -708,6 +708,10 @@ function clearHazardEffect() {
 }
 
 // --- UI Update ---
+function isMobile() {
+    return window.innerWidth <= 600;
+}
+
 function updateUI() {
     document.getElementById('distance').innerText = `Distance: ${snail.distance.toFixed(2)} m`;
     document.getElementById('slimePoints').innerText = `Slime: ${Math.floor(snail.slimePoints)}`;
@@ -722,9 +726,24 @@ function updateUI() {
     const turboDiv = document.getElementById('turboInfo');
     if (turboDiv) turboDiv.remove();
     const currentCost = getPrestigeCost();
-    document.getElementById('prestigeBtn').disabled = !(snail.level >= 120 && snail.slimePoints >= currentCost);
-    // Keep emoji icon in prestige button
-    document.getElementById('prestigeBtn').innerHTML = `🦑 <span>Prestige: <span style='color:#ffd700'>${toRoman(snail.prestige + 1)}</span><br><span style='font-size:0.85em'>Requirements:</span><br><span style='font-size:0.75em'>Cost: <span style='color:#ffd700'>${currentCost}</span>, Level: <span style='color:#ffd700'>120+</span></span></span>`;
+    const prestigeBtn = document.getElementById('prestigeBtn');
+    if (isMobile()) {
+        // First line: icon and prestige number
+        prestigeBtn.innerHTML =
+            `<span style="display:flex;align-items:center;justify-content:center;">
+                🦑 <span style="margin-left:6px;font-weight:bold;color:#ffd700;">${toRoman(snail.prestige + 1)}</span>
+            </span>
+            <span class="prestige-cost" style="display:block;font-size:10px;color:#ffd700;text-align:center;margin-top:2px;">
+                Cost: ${currentCost}
+            </span>
+            <span class="prestige-level" style="display:block;font-size:10px;color:#ffd700;text-align:center;">
+                Level: 120+
+            </span>`;
+        prestigeBtn.disabled = !(snail.level >= 120 && snail.slimePoints >= currentCost);
+    } else {
+        prestigeBtn.innerHTML = `🦑 <span>Prestige: <span style='color:#ffd700'>${toRoman(snail.prestige + 1)}</span><br><span style='font-size:0.85em'>Requirements:</span><br><span style='font-size:0.75em'>Cost: <span style='color:#ffd700'>${currentCost}</span>, Level: <span style='color:#ffd700'>120+</span></span></span>`;
+        prestigeBtn.disabled = !(snail.level >= 120 && snail.slimePoints >= currentCost);
+    }
     // Hazard timer UI in score panel: only show "Next Hazard" countdown
     const hazardTimerDiv = document.getElementById('hazard-timer');
     if (hazardTimerDiv) {
@@ -787,7 +806,7 @@ function updateUI() {
 }
 
 // --- Leaderboard ---
-let leaderboardTimer = 30;
+let leaderboardTimer = 15;
 function toRoman(num) {
     if (num <= 0) return '';
     const romans = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX'];
@@ -808,14 +827,15 @@ function updateLeaderboard() {
         const lbDiv = document.getElementById('leaderboard-list');
         lbDiv.innerHTML = leaderboard.length ? leaderboard.map((u, i) => `${i+1}. <b>${u.username}</b>: ${u.distance}m <span style='color:#ffd700'>(${toRoman(u.prestige)})</span>`).join('<br>') : 'No entries yet.';
     });
-    // Only update timer display, do not reset timer here
     document.getElementById('leaderboard-timer').innerText = leaderboardTimer;
 }
+
+// Only update leaderboard every 15 seconds, not live
 setInterval(() => {
     leaderboardTimer--;
     if (leaderboardTimer <= 0) {
         updateLeaderboard();
-        leaderboardTimer = 30;
+        leaderboardTimer = 15;
         document.getElementById('leaderboard-timer').innerText = leaderboardTimer;
     } else {
         document.getElementById('leaderboard-timer').innerText = leaderboardTimer;

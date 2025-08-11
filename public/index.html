@@ -80,18 +80,68 @@
             <div id="hazard-timer" class="info" style="margin-top:8px;"></div>
         </div>
         <div id="upgrade-panel">
-            <button id="speedShell" class="upgrade-btn">🐚 <span>Speed Shell</span></button>
-            <button id="slimeBooster" class="upgrade-btn">🧪 <span>Slime Booster</span></button>
-            <button id="turboSlime" class="upgrade-btn">⚡ <span>Turbo Slime</span></button>
+            <button id="speedShell" class="upgrade-btn">🐚 <span class="upgrade-name">Speed Shell</span><span class="upgrade-cost"></span></button>
+            <button id="slimeBooster" class="upgrade-btn">🧪 <span class="upgrade-name">Slime Booster</span><span class="upgrade-cost"></span></button>
+            <button id="turboSlime" class="upgrade-btn">⚡ <span class="upgrade-name">Turbo Slime</span><span class="upgrade-cost"></span></button>
         </div>
-        <button id="prestigeBtn" class="prestige-btn" style="display:inline-flex;align-items:center;gap:8px;">🦑 <span>Prestige: New Species</span></button>
+        <button id="prestigeBtn" class="prestige-btn" style="display:inline-flex;align-items:center;gap:8px;">
+            🦑 <span class="prestige-name">Prestige: New Species</span>
+            <span class="prestige-cost"></span>
+            <span class="prestige-level"></span>
+        </button>
     </div>
     <div id="leaderboard-box">
         <div id="leaderboard-title"><b>Leaderboard</b></div>
         <div id="leaderboard-list">Loading...</div>
         <div id="leaderboard-refresh">Refresh in <span id="leaderboard-timer">10</span>s</div>
     </div>
+    <!-- Leaderboard Modal/Menu for mobile -->
+    <div id="leaderboard-menu" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999;background:rgba(20,20,20,0.98);border-radius:18px;padding:24px 32px;box-shadow:0 4px 24px #000;max-width:340px;min-width:180px;max-height:70vh;overflow-y:auto;">
+        <div style="font-size:22px;font-weight:bold;color:#ffd700;margin-bottom:12px;text-align:center;">Leaderboard</div>
+        <div id="leaderboard-menu-list" style="margin-bottom:12px;">Loading...</div>
+        <button id="close-leaderboard-menu" style="margin-top:18px;padding:7px 18px;border-radius:8px;background:#222;color:#ffd700;font-size:15px;border:none;cursor:pointer;">Close</button>
+    </div>
     <canvas id="gameCanvas"></canvas>
     <script src="scripts/game.js"></script>
+    <script>
+    // Mutation Book logic (calls game.js function)
+    window.addEventListener('DOMContentLoaded', function() {
+        const mutationBookBtn = document.getElementById('open-mutation-book');
+        const closeMutationBookBtn = document.getElementById('close-mutation-book');
+        mutationBookBtn.onclick = function() {
+            if (window.showMutationBook) window.showMutationBook();
+        };
+        closeMutationBookBtn.onclick = function() {
+            document.getElementById('mutation-book-menu').style.display = 'none';
+        };
+        // Challenge window open/close logic
+        document.getElementById('open-challenge-window').onclick = function() {
+            document.getElementById('challenge-window').style.display = 'block';
+        };
+        document.getElementById('close-challenge-window').onclick = function() {
+            document.getElementById('challenge-window').style.display = 'none';
+        };
+        // Leaderboard menu logic for mobile
+        function isMobile() {
+            return window.innerWidth <= 600;
+        }
+        const leaderboardBox = document.getElementById('leaderboard-box');
+        const leaderboardMenu = document.getElementById('leaderboard-menu');
+        const leaderboardMenuList = document.getElementById('leaderboard-menu-list');
+        const closeLeaderboardMenuBtn = document.getElementById('close-leaderboard-menu');
+        if (leaderboardBox && leaderboardMenu && leaderboardMenuList && closeLeaderboardMenuBtn) {
+            leaderboardBox.onclick = function() {
+                if (isMobile()) {
+                    // Copy leaderboard content
+                    leaderboardMenuList.innerHTML = document.getElementById('leaderboard-list').innerHTML;
+                    leaderboardMenu.style.display = 'block';
+                }
+            };
+            closeLeaderboardMenuBtn.onclick = function() {
+                leaderboardMenu.style.display = 'none';
+            };
+        }
+    });
+    </script>
 </body>
 </html>
