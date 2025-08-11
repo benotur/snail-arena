@@ -12,6 +12,12 @@
 </head>
 <body>
     <div id="alert-container"></div>
+    <!-- Challenge Window -->
+    <div id="challenge-window" style="position:fixed;top:50%;left:32px;transform:translateY(-50%);z-index:210;background:rgba(20,20,20,0.98);border-radius:18px;padding:24px 32px;box-shadow:0 4px 24px #000;max-width:340px;min-width:220px;max-height:70vh;overflow-y:auto;">
+        <div style="font-size:22px;font-weight:bold;color:#ffd700;margin-bottom:12px;text-align:center;">Challenges</div>
+        <div id="dailyChallenge" class="info" style="margin-bottom:18px;"></div>
+        <div id="weeklyChallenge" class="info"></div>
+    </div>
         <div id="username-container" style="position:fixed;top:10px;right:50%;transform:translateX(50%);z-index:200;background:#222;padding:10px 20px;border-radius:8px;box-shadow:0 0 8px #4caf50;display:none;">
             <label for="username-input" style="color:#fff;font-family:inherit;font-size:15px;">Username:</label>
             <input id="username-input" type="text" style="font-size:15px;padding:4px 10px;border-radius:4px;border:1px solid #4caf50;">
@@ -24,14 +30,14 @@
     <div id="mutation-book-list" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px;"></div>
     <button id="close-mutation-book" style="margin-top:18px;padding:7px 18px;border-radius:8px;background:#222;color:#ffd700;font-size:15px;border:none;cursor:pointer;">Close</button>
     </div>
-    <button id="open-mutation-book" style="position:fixed;top:130px;right:32px;z-index:251;padding:7px 18px;border-radius:8px;background:#222;color:#ffd700;font-size:15px;border:none;cursor:pointer;pointer-events:auto;">Mutation Book</button>
+    <button id="open-mutation-book" style="position:fixed;top:72px;right:24px;z-index:251;padding:8px 16px;border-radius:10px;background:#222;color:#ffd700;font-size:13px;border:none;cursor:pointer;pointer-events:auto;margin-bottom:3px;">Mutation Book</button>
     <!-- Hazard Book Menu -->
     <div id="hazard-book-menu" style="position:fixed;top:50px;right:50px;z-index:300;background:rgba(20,20,20,0.98);border-radius:18px;padding:24px 32px;box-shadow:0 4px 24px #000;display:none;max-width:340px;min-width:220px;">
         <div style="font-size:22px;font-weight:bold;color:#ffd700;margin-bottom:12px;text-align:center;">Hazard Book</div>
         <div id="hazard-book-list"></div>
         <button id="close-hazard-book" style="margin-top:18px;padding:7px 18px;border-radius:8px;background:#222;color:#ffd700;font-size:15px;border:none;cursor:pointer;">Close</button>
     </div>
-    <button id="open-hazard-book" style="position:fixed;top:180px;right:32px;z-index:250;padding:7px 18px;border-radius:8px;background:#222;color:#ffd700;font-size:15px;border:none;cursor:pointer;">Hazard Book</button>
+    <button id="open-hazard-book" style="position:fixed;top:108px;right:24px;z-index:250;padding:8px 16px;border-radius:10px;background:#222;color:#ffd700;font-size:13px;border:none;cursor:pointer;margin-bottom:3px;">Hazard Book</button>
     <script>
     // Mutation Book logic (calls game.js function)
     window.addEventListener('DOMContentLoaded', function() {
@@ -59,8 +65,7 @@
         </div>
         <div id="info-panel">
             <div id="mutations" class="info">Mutations: None</div>
-            <div id="hazard-timer" class="info">Next Hazard: 30s</div>
-            <div id="dailyChallenge" class="info">Daily Challenge: Coming soon!</div>
+            <div id="hazard-timer" class="info" style="margin-bottom:8px;"></div>
         </div>
         <button id="prestigeBtn" class="prestige-btn">Prestige: New Species</button>
     </div>

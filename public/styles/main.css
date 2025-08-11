@@ -1,3 +1,38 @@
+/* Challenge Window */
+ #challenge-window {
+    position: fixed;
+    top: 47%;
+    left: 14px;
+    transform: translateY(-47%);
+    z-index: 210;
+    background: rgba(20,20,20,0.98);
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: 0 2px 8px #000;
+    max-width: 160px;
+    min-width: 90px;
+    max-height: 60vh;
+    overflow-y: auto;
+    backdrop-filter: blur(8px);
+    color: #fff;
+    font-family: 'Press Start 2P', 'monospace', Arial, sans-serif;
+    font-size: 11px;
+    border: none;
+}
+@media (max-width: 600px) {
+    #challenge-window {
+        left: 4px;
+        padding: 5px 5px;
+        font-size: 8px;
+        border-radius: 7px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+        max-width: 70px;
+        min-width: 50px;
+    }
+    #challenge-window div {
+        font-size: 8px;
+    }
+}
 /* Hazard Book Menu */
 #hazard-book-menu {
     backdrop-filter: blur(10px);
@@ -158,14 +193,14 @@ body {
 
 .score-panel, #score-panel {
     position: absolute;
-    top: 20px; left: 20px;
+    top: 18px; left: 18px;
     background: rgba(0,0,0,0.75);
     border-radius: 18px;
-    padding: 10px 16px;
+    padding: 12px 18px;
     color: #fff;
-    font-size: 14px;
+    font-size: 15px;
     pointer-events: auto;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.18);
     backdrop-filter: blur(8px);
 }
 .score { margin-bottom: 4px; }
@@ -208,15 +243,15 @@ body {
 
 #info-panel {
     position: absolute;
-    top: 20px; right: 20px;
+    top: 18px; right: 18px;
     background: rgba(0,0,0,0.65);
     border-radius: 16px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     color: #fff;
-    font-size: 12px;
+    font-size: 13px;
     pointer-events: auto;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.18);
-    backdrop-filter: blur(7px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+    backdrop-filter: blur(8px);
     border: none;
 }
 .info { margin-bottom: 3px; }
