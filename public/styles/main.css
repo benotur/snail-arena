@@ -1,3 +1,30 @@
+/* Hazard Book Menu */
+#hazard-book-menu {
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.28);
+    border: none;
+    color: #fff;
+    font-family: 'Press Start 2P', 'monospace', Arial, sans-serif;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+#hazard-book-list {
+    margin-bottom: 8px;
+}
+#open-hazard-book {
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    border: none;
+    color: #ffd700;
+    font-family: inherit;
+    font-size: 15px;
+    background: rgba(0,0,0,0.85);
+    transition: background 0.2s, color 0.2s;
+}
+#open-hazard-book:hover {
+    background: rgba(255,255,255,0.10);
+    color: #fff;
+}
 @media (max-width: 600px) {
     #score-panel {
         top: 4px;

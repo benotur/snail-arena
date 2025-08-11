@@ -17,6 +17,13 @@
             <input id="username-input" type="text" style="font-size:15px;padding:4px 10px;border-radius:4px;border:1px solid #4caf50;">
             <button id="username-confirm" style="font-size:15px;padding:4px 12px;border-radius:4px;border:1px solid #4caf50;background:#4caf50;color:#222;cursor:pointer;">OK</button>
         </div>
+    <!-- Hazard Book Menu -->
+    <div id="hazard-book-menu" style="position:fixed;top:50px;right:50px;z-index:300;background:rgba(20,20,20,0.98);border-radius:18px;padding:24px 32px;box-shadow:0 4px 24px #000;display:none;max-width:340px;min-width:220px;">
+        <div style="font-size:22px;font-weight:bold;color:#ffd700;margin-bottom:12px;text-align:center;">Hazard Book</div>
+        <div id="hazard-book-list"></div>
+        <button id="close-hazard-book" style="margin-top:18px;padding:7px 18px;border-radius:8px;background:#222;color:#ffd700;font-size:15px;border:none;cursor:pointer;">Close</button>
+    </div>
+    <button id="open-hazard-book" style="position:fixed;top:120px;right:32px;z-index:250;padding:7px 18px;border-radius:8px;background:#222;color:#ffd700;font-size:15px;border:none;cursor:pointer;">Hazard Book</button>
     <div id="ui-container">
         <div id="score-panel">
             <div id="distance" class="score">Distance: 0 m</div>
@@ -31,7 +38,7 @@
         </div>
         <div id="info-panel">
             <div id="mutations" class="info">Mutations: None</div>
-            <div id="hazards" class="info">Hazards: Coming soon!</div>
+            <div id="hazard-timer" class="info">Next Hazard: 30s</div>
             <div id="dailyChallenge" class="info">Daily Challenge: Coming soon!</div>
         </div>
         <button id="prestigeBtn" class="prestige-btn">Prestige: New Species</button>

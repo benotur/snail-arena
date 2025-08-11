@@ -29,6 +29,25 @@ let snail = {
 };
 let username = '';
 
+// --- Hazards ---
+let hazards = [];
+const hazardTypes = [
+    { type: 'salt', name: 'Salt Patch', color: '#fff', effect: 'slow' },
+    { type: 'bird', name: 'Bird Attack', color: '#222', effect: 'stop' },
+    { type: 'puddle', name: 'Puddle', color: '#4fc3f7', effect: 'slide' },
+    { type: 'pebble', name: 'Falling Pebble', color: '#888', effect: 'block' },
+    { type: 'ants', name: 'Ant Swarm', color: '#6d4c41', effect: 'slow' },
+    { type: 'gum', name: 'Sticky Gum', color: '#ff69b4', effect: 'stuck' },
+    { type: 'shadow', name: 'Shadow Hand', color: '#333', effect: 'slow' },
+    { type: 'wind', name: 'Wind Gust', color: '#b2ebf2', effect: 'push' },
+    { type: 'oil', name: 'Oil Spill', color: '#212121', effect: 'swerve' },
+    { type: 'laser', name: 'Laser Fence', color: '#e74c3c', effect: 'timed' }
+];
+
+// --- Hazard Timer ---
+let hazardTimer = 60;
+let hazardInterval = 60; // seconds
+
 const scenery = [
     { name: "Garden", color: "#4e8c36" },
     { name: "Sidewalk", color: "#8a989e" },
@@ -49,7 +68,12 @@ const scenery = [
     { name: "Jungle", color: "#176a36" },
     { name: "Canyon", color: "#a1502c" },
     { name: "Metro", color: "#181a1b" },
-    { name: "Dreamscape", color: "#a04c6a" }
+    { name: "Dreamscape", color: "#a04c6a" },
+    { name: "Mushroom Forest", color: "#7d5fff" },
+    { name: "Coral Reef", color: "#ff7675" },
+    { name: "Frost Peaks", color: "#74b9ff" },
+    { name: "Molten Core", color: "#fd5c63" },
+    { name: "Clockwork City", color: "#d35400" }
 ];
 const checkpointDistance = 5000; // meters per scenery change
 
@@ -212,6 +236,15 @@ function updateSnail(dt) {
         if (snail.turboActive) speed *= 2;
         snail.distance += speed * snail.slimeEfficiency * (dt / 1000);
         snail.slimePoints += speed * snail.slimeEfficiency * (dt / 1000);
+            // Hazard spawn timer
+            if (!window.lastHazardTime) window.lastHazardTime = performance.now();
+            let elapsed = (performance.now() - window.lastHazardTime) / 1000;
+            hazardTimer = Math.max(0, hazardInterval - elapsed);
+            if (elapsed >= hazardInterval) {
+            spawnHazard();
+            window.lastHazardTime = performance.now();
+                hazardTimer = hazardInterval;
+        }
     }
     if (snail.turboActive) {
         snail.turboTimer -= dt;
@@ -219,10 +252,87 @@ function updateSnail(dt) {
             snail.turboActive = false;
         }
     }
+    // Check for hazard collisions/effects
+    hazards.forEach(hazard => {
+        if (!hazard.active) return;
+        // Simple collision: if snail is near hazard x
+        if (Math.abs(snail.distance - hazard.x) < 50) {
+            applyHazardEffect(hazard);
+            hazard.active = false;
+        }
+    });
     // Checkpoint logic
     snail.checkpoint = Math.floor(snail.distance / checkpointDistance);
     // Level logic
     snail.level = Math.floor(snail.distance / 1000) + 1;
+    // Remove expired hazards
+    hazards = hazards.filter(h => h.active !== false);
+}
+
+function spawnHazard() {
+    const type = hazardTypes[Math.floor(Math.random()*hazardTypes.length)];
+    hazards.push({
+        type: type.type,
+        name: type.name,
+        color: type.color,
+        effect: type.effect,
+        x: snail.distance + 300 + Math.random()*200,
+        active: true,
+        created: performance.now(),
+        duration: 4000 + Math.random()*3000
+    });
+}
+
+function applyHazardEffect(hazard) {
+    switch(hazard.type) {
+        case 'salt':
+            snail.speed *= 0.5;
+            showAlert('Salt Patch! Slowed down!', 'error');
+            setTimeout(() => { snail.speed /= 0.5; }, 3000);
+            break;
+        case 'bird':
+            snail.isMoving = false;
+            showAlert('Bird Attack! Stopped!', 'error');
+            setTimeout(() => { snail.isMoving = true; }, 2000);
+            break;
+        case 'puddle':
+            snail.distance += 120;
+            showAlert('Puddle! Slid forward!', 'info');
+            break;
+        case 'pebble':
+            snail.isMoving = false;
+            showAlert('Pebble! Blocked!', 'error');
+            setTimeout(() => { snail.isMoving = true; }, 1500);
+            break;
+        case 'ants':
+            snail.speed *= 0.7;
+            showAlert('Ant Swarm! Slowed!', 'error');
+            setTimeout(() => { snail.speed /= 0.7; }, 2500);
+            break;
+        case 'gum':
+            snail.isMoving = false;
+            showAlert('Sticky Gum! Wiggle free!', 'error');
+            setTimeout(() => { snail.isMoving = true; }, 1800);
+            break;
+        case 'shadow':
+            snail.speed *= 0.6;
+            showAlert('Shadow Hand! Slowed!', 'error');
+            setTimeout(() => { snail.speed /= 0.6; }, 2200);
+            break;
+        case 'wind':
+            snail.distance -= 80;
+            showAlert('Wind Gust! Pushed back!', 'error');
+            break;
+        case 'oil':
+            snail.distance += (Math.random() > 0.5 ? 60 : -60);
+            showAlert('Oil Spill! Swerved!', 'info');
+            break;
+        case 'laser':
+            snail.isMoving = false;
+            showAlert('Laser Fence! Wait to cross!', 'error');
+            setTimeout(() => { snail.isMoving = true; }, 1200);
+            break;
+    }
 }
 
 function updateUI() {
@@ -231,14 +341,20 @@ function updateUI() {
     let sceneryIndex = Number.isFinite(snail.checkpoint) && snail.checkpoint >= 0 ? snail.checkpoint % scenery.length : 0;
     let checkpointName = (scenery[sceneryIndex] && scenery[sceneryIndex].name) ? scenery[sceneryIndex].name : scenery[0].name;
     document.getElementById('checkpoint').innerText = `Checkpoint: ${checkpointName}`;
-    document.getElementById('prestige').innerText = `Prestige: ${snail.prestige > 0 ? toRoman(snail.prestige) : ''}`;
+    document.getElementById('prestige').innerText = `Prestige: ${toRoman(snail.prestige)}`;
     document.getElementById('mutations').innerText = 'Mutations: ' + (snail.mutations.length ? snail.mutations.join(', ') : 'None');
     // Remove Turbo Slime info from info panel
     const turboDiv = document.getElementById('turboInfo');
     if (turboDiv) turboDiv.remove();
     const currentCost = getPrestigeCost();
     document.getElementById('prestigeBtn').disabled = !(snail.level >= 120 && snail.slimePoints >= currentCost);
-    document.getElementById('prestigeBtn').innerHTML = `Prestige: <span style='color:#ffd700'>${snail.prestige > 0 ? toRoman(snail.prestige) : 'I'}</span><br><span style='font-size:0.85em'>Requirements:</span><br><span style='font-size:0.75em'>Cost: <span style='color:#ffd700'>${currentCost}</span>, Level: <span style='color:#ffd700'>120+</span></span>`;
+    document.getElementById('prestigeBtn').innerHTML = `Prestige: <span style='color:#ffd700'>${toRoman(snail.prestige + 1)}</span><br><span style='font-size:0.85em'>Requirements:</span><br><span style='font-size:0.75em'>Cost: <span style='color:#ffd700'>${currentCost}</span>, Level: <span style='color:#ffd700'>120+</span></span>`;
+    // Hazard timer UI
+    const hazardTimerDiv = document.getElementById('hazard-timer');
+    if (hazardTimerDiv) {
+        let nextHazard = window.nextHazardType || hazardTypes[0];
+        hazardTimerDiv.innerText = `Next Hazard: ${Math.ceil(hazardTimer)}s (${nextHazard.name})`;
+    }
     upgradeDefs.forEach(upg => {
         const btn = document.getElementById(upg.id);
         btn.innerText = `${upg.name} (${upg.cost} Slime)`;
@@ -347,6 +463,41 @@ window.addEventListener('DOMContentLoaded', () => {
     promptUsername();
     updateLeaderboard();
     // Restore upgrade button click handlers
+        // Hazard Book logic
+        const hazardBookBtn = document.getElementById('open-hazard-book');
+        const hazardBookMenu = document.getElementById('hazard-book-menu');
+        const hazardBookList = document.getElementById('hazard-book-list');
+        const closeHazardBookBtn = document.getElementById('close-hazard-book');
+
+        hazardBookBtn.onclick = () => {
+            hazardBookMenu.style.display = 'block';
+            hazardBookList.innerHTML = hazardTypes.map(h => `
+                <div style="margin-bottom:14px;padding:10px 0;border-bottom:1px solid #333;">
+                    <span style="font-size:16px;color:${h.color};font-weight:bold;">${h.name}</span><br>
+                    <span style="font-size:13px;color:#fff;">${getHazardDescription(h.type)}</span>
+                </div>
+            `).join('');
+        };
+        closeHazardBookBtn.onclick = () => {
+            hazardBookMenu.style.display = 'none';
+        };
+    });
+
+    function getHazardDescription(type) {
+        switch(type) {
+            case 'salt': return 'Slows your snail and drains slime.';
+            case 'bird': return 'A bird swoops down and stops you briefly.';
+            case 'puddle': return 'Slides your snail forward uncontrollably.';
+            case 'pebble': return 'Blocks your path, forcing a short wait.';
+            case 'ants': return 'Ants crawl over you, reducing speed.';
+            case 'gum': return 'Sticky gum stops you, wiggle free!';
+            case 'shadow': return 'A shadow hand slows your progress.';
+            case 'wind': return 'Wind gust pushes you backward.';
+            case 'oil': return 'Oil spill makes you swerve randomly.';
+            case 'laser': return 'Laser fence activates, wait to cross.';
+            default: return '';
+        }
+    }
     upgradeDefs.forEach(upg => {
         const btn = document.getElementById(upg.id);
         btn.onclick = () => {
@@ -364,7 +515,8 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         };
     });
-});
+    // Remove duplicate hazard timer creation (now in HTML)
+// Removed extra closing bracket to fix syntax error
 
 requestAnimationFrame(gameLoop);
 
@@ -374,6 +526,124 @@ function drawGame() {
     let currentScenery = scenery[sceneryIndex] || scenery[0];
     ctx.fillStyle = currentScenery.color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw hazards with simple animations
+        hazards.forEach(hazard => {
+            // Calculate hazard position relative to snail
+            const relX = canvas.width/2 + (hazard.x - snail.distance);
+            const relY = canvas.height/2 + 40;
+            const elapsed = performance.now() - hazard.created;
+            const progress = Math.min(elapsed / hazard.duration, 1);
+            ctx.save();
+            switch(hazard.type) {
+                case 'salt': // Salt Patch: pulsing white circle
+                    ctx.globalAlpha = 0.7 + 0.3*Math.sin(elapsed/200);
+                    ctx.beginPath();
+                    ctx.arc(relX, relY, 28 + 4*Math.sin(elapsed/150), 0, 2*Math.PI);
+                    ctx.fillStyle = '#fff';
+                    ctx.fill();
+                    break;
+                case 'bird': // Bird Attack: swooping triangle
+                    ctx.globalAlpha = 0.85;
+                    ctx.fillStyle = '#222';
+                    ctx.save();
+                    ctx.translate(relX, relY - 40 - 30*Math.sin(progress*Math.PI));
+                    ctx.rotate(Math.sin(elapsed/300)*0.2);
+                    ctx.beginPath();
+                    ctx.moveTo(0,0);
+                    ctx.lineTo(-18,24);
+                    ctx.lineTo(18,24);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                    break;
+                case 'puddle': // Puddle: animated blue ellipse
+                    ctx.globalAlpha = 0.7;
+                    ctx.beginPath();
+                    ctx.ellipse(relX, relY+8, 32+6*Math.sin(elapsed/180), 16+3*Math.cos(elapsed/120), 0, 0, 2*Math.PI);
+                    ctx.fillStyle = '#4fc3f7';
+                    ctx.fill();
+                    break;
+                case 'pebble': // Falling Pebble: gray circle dropping
+                    ctx.globalAlpha = 0.8;
+                    ctx.beginPath();
+                    ctx.arc(relX, relY - 40 + 40*progress, 14, 0, 2*Math.PI);
+                    ctx.fillStyle = '#888';
+                    ctx.fill();
+                    break;
+                case 'ants': // Ant Swarm: brown dots moving in a wave
+                    ctx.globalAlpha = 0.8;
+                    for (let i=0; i<7; i++) {
+                        let ax = relX - 18 + i*6;
+                        let ay = relY + 10*Math.sin(elapsed/120 + i);
+                        ctx.beginPath();
+                        ctx.arc(ax, ay, 4, 0, 2*Math.PI);
+                        ctx.fillStyle = '#6d4c41';
+                        ctx.fill();
+                    }
+                    break;
+                case 'gum': // Sticky Gum: pink blob pulsing
+                    ctx.globalAlpha = 0.7 + 0.2*Math.sin(elapsed/100);
+                    ctx.beginPath();
+                    ctx.ellipse(relX, relY, 22+6*Math.sin(elapsed/90), 18+4*Math.cos(elapsed/120), 0, 0, 2*Math.PI);
+                    ctx.fillStyle = '#ff69b4';
+                    ctx.fill();
+                    break;
+                case 'shadow': // Shadow Hand: dark hand-like shape rising
+                    ctx.globalAlpha = 0.6;
+                    ctx.save();
+                    ctx.translate(relX, relY + 30 - 30*progress);
+                    ctx.rotate(Math.sin(elapsed/200)*0.1);
+                    ctx.beginPath();
+                    ctx.moveTo(0,0);
+                    ctx.lineTo(-12,-18);
+                    ctx.lineTo(-6,-8);
+                    ctx.lineTo(0,-22);
+                    ctx.lineTo(6,-8);
+                    ctx.lineTo(12,-18);
+                    ctx.closePath();
+                    ctx.fillStyle = '#333';
+                    ctx.fill();
+                    ctx.restore();
+                    break;
+                case 'wind': // Wind Gust: animated cyan swirls
+                    ctx.globalAlpha = 0.5;
+                    for (let i=0; i<3; i++) {
+                        ctx.beginPath();
+                        ctx.arc(relX + 18*Math.sin(elapsed/200 + i), relY - 10 + 8*i, 10 + 2*Math.cos(elapsed/150 + i), 0, 2*Math.PI);
+                        ctx.strokeStyle = '#b2ebf2';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                    }
+                    break;
+                case 'oil': // Oil Spill: animated black blob
+                    ctx.globalAlpha = 0.7;
+                    ctx.beginPath();
+                    ctx.ellipse(relX, relY+10, 26+5*Math.sin(elapsed/110), 14+3*Math.cos(elapsed/90), 0, 0, 2*Math.PI);
+                    ctx.fillStyle = '#212121';
+                    ctx.fill();
+                    break;
+                case 'laser': // Laser Fence: flashing red lines
+                    ctx.globalAlpha = 0.8;
+                    for (let i=0; i<3; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(relX-20+i*20, relY-18);
+                        ctx.lineTo(relX-20+i*20, relY+18);
+                        ctx.strokeStyle = (Math.floor(elapsed/150)%2===0)?'#e74c3f':'#fff';
+                        ctx.lineWidth = 4;
+                        ctx.stroke();
+                    }
+                    break;
+                default:
+                    // Generic hazard: gray circle
+                    ctx.globalAlpha = 0.7;
+                    ctx.beginPath();
+                    ctx.arc(relX, relY, 20, 0, 2*Math.PI);
+                    ctx.fillStyle = hazard.color || '#888';
+                    ctx.fill();
+            }
+            ctx.restore();
+        });
 
     // Speed effect: animated motion blur lines if turbo
     if (snail.turboActive) {
