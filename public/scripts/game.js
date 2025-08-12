@@ -394,79 +394,188 @@ function spawnBossHazard() {
 }
 
 // --- Hazard Effect State ---
+let activeHazardEffects = []; // Array of {type, name, effect, endTime, ...}
+
 function applyHazardEffect(hazard) {
-    activeHazardEffect = {
-        type: hazard.type,
-        name: hazard.name,
-        effect: hazard.effect,
-        endTime: performance.now() + hazard.duration
-    };
+    // Duration spec for each hazard
+    let duration = 0;
+    switch(hazard.type) {
+        case 'salt': duration = 30000; break;
+        case 'bird': duration = 10000; break;
+        case 'pebble': duration = 8000; break;
+        case 'ants': duration = 60000; break;
+        case 'gum': duration = 20000; break;
+        case 'shadow': duration = 40000; break;
+        case 'laser': duration = 15000; break;
+        default: duration = hazard.duration || 12000;
+    }
+    // Stackable effect: if same type, extend timer
+    let existing = activeHazardEffects.find(e => e.type === hazard.type);
+    if (existing) {
+        existing.endTime += duration;
+        showAlert(`${hazard.name} stacked! +${Math.floor(duration/1000)}s`, 'error');
+    } else {
+        let effectObj = {
+            type: hazard.type,
+            name: hazard.name,
+            effect: hazard.effect,
+            endTime: performance.now() + duration
+        };
+        activeHazardEffects.push(effectObj);
+        showAlert(`${hazard.name} applied!`, 'error');
+    }
+    // Apply stat changes (stacking logic)
     switch(hazard.type) {
         case 'salt':
             snail.speed *= 0.5;
-            snail.speedShellDisabledUntil = performance.now() + 30000;
-            showAlert('Salt Patch! Speed halved, Speed Shell disabled for 30s!', 'error');
+            snail.speedShellDisabledUntil = Math.max(snail.speedShellDisabledUntil || 0, performance.now() + duration);
             break;
         case 'bird':
             snail.isMoving = false;
             snail.slimePoints = Math.floor(snail.slimePoints * 0.9);
-            snail.movementDisabledUntil = performance.now() + 10000;
-            showAlert('Bird Attack! Lost 10% slime, stopped for 10s!', 'error');
+            snail.movementDisabledUntil = Math.max(snail.movementDisabledUntil || 0, performance.now() + duration);
             break;
         case 'puddle':
             snail.distance += 120;
             showAlert('Puddle! Slid forward 120m!', 'info');
-            clearHazardEffect();
             break;
         case 'pebble':
             snail.isMoving = false;
-            snail.movementDisabledUntil = performance.now() + 8000;
-            showAlert('Pebble! Blocked for 8s!', 'error');
+            snail.movementDisabledUntil = Math.max(snail.movementDisabledUntil || 0, performance.now() + duration);
             break;
         case 'ants':
             snail.slimeEfficiency *= 0.5;
-            snail.efficiencyRestoreAt = performance.now() + 60000;
-            showAlert('Ant Swarm! Slime efficiency halved for 60s!', 'error');
+            snail.efficiencyRestoreAt = Math.max(snail.efficiencyRestoreAt || 0, performance.now() + duration);
             break;
         case 'gum':
-            snail.upgradesDisabledUntil = performance.now() + 20000;
-            showAlert('Sticky Gum! Upgrades disabled for 20s!', 'error');
+            snail.upgradesDisabledUntil = Math.max(snail.upgradesDisabledUntil || 0, performance.now() + duration);
             break;
         case 'shadow':
             snail.speed *= 0.5;
-            snail.shadowSlowRestoreAt = performance.now() + 40000;
-            showAlert('Shadow Hand! Speed halved for 40s!', 'error');
+            snail.shadowSlowRestoreAt = Math.max(snail.shadowSlowRestoreAt || 0, performance.now() + duration);
             break;
         case 'wind':
             snail.distance = Math.max(0, snail.distance - 200);
             showAlert('Wind Gust! Pushed back 200m!', 'error');
-            clearHazardEffect();
             break;
         case 'oil':
             const move = Math.random() > 0.5 ? 100 : -100;
             snail.distance = Math.max(0, snail.distance + move);
             showAlert(`Oil Spill! Swerved ${move > 0 ? '+' : ''}${move}m!`, 'info');
-            clearHazardEffect();
             break;
         case 'laser':
-            snail.turboDisabledUntil = performance.now() + 15000;
-            showAlert('Laser Fence! Turbo disabled for 15s!', 'error');
+            snail.turboDisabledUntil = Math.max(snail.turboDisabledUntil || 0, performance.now() + duration);
             break;
     }
 }
 
-function clearHazardEffect() {
-    activeHazardEffect = null;
+function clearExpiredHazardEffects() {
+    const now = performance.now();
+    // Remove expired effects and restore stats
+    activeHazardEffects = activeHazardEffects.filter(effect => {
+        if (now > effect.endTime) {
+            switch(effect.type) {
+                case 'salt':
+                    snail.speed = 1 + snail.prestige * 0.2; // restore base speed
+                    snail.speedShellDisabledUntil = 0;
+                    break;
+                case 'bird':
+                case 'pebble':
+                    snail.isMoving = true;
+                    snail.movementDisabledUntil = 0;
+                    break;
+                case 'ants':
+                    snail.slimeEfficiency = 1 + snail.prestige * 0.1; // restore base efficiency
+                    snail.efficiencyRestoreAt = 0;
+                    break;
+                case 'gum':
+                    snail.upgradesDisabledUntil = 0;
+                    break;
+                case 'shadow':
+                    snail.speed = 1 + snail.prestige * 0.2;
+                    snail.shadowSlowRestoreAt = 0;
+                    break;
+                case 'laser':
+                    snail.turboDisabledUntil = 0;
+                    break;
+            }
+            return false; // remove
+        }
+        return true; // keep
+    });
 }
 
 // --- Game Loop ---
+function updateUI() {
+    // Defensive: only update elements that exist
+    const slimePointsDiv = document.getElementById('slimePoints');
+    if (slimePointsDiv) slimePointsDiv.innerText = `Slime: ${Math.floor(snail.slimePoints)}`;
+    const distanceDiv = document.getElementById('distance');
+    if (distanceDiv) distanceDiv.innerText = `Distance: ${snail.distance.toFixed(2)} m`;
+    const speedDiv = document.getElementById('speed');
+    if (speedDiv) speedDiv.innerText = `Speed: ${snail.speed.toFixed(1)}`;
+    const efficiencyDiv = document.getElementById('efficiency');
+    if (efficiencyDiv) efficiencyDiv.innerText = `Slime Efficiency: ${snail.slimeEfficiency.toFixed(1)}`;
+    const trailBoostersDiv = document.getElementById('trail-boosters');
+    if (trailBoostersDiv) trailBoostersDiv.innerText = `Trail Boosters: ${snail.trailBoosters}`;
+    const prestigeDiv = document.getElementById('prestige');
+    if (prestigeDiv) prestigeDiv.innerText = `Prestige: ${toRoman(snail.prestige)}`;
+    const mutationCountDiv = document.getElementById('mutation-count');
+    if (mutationCountDiv) mutationCountDiv.innerText = `Mutations Unlocked: ${snail.unlockedMutations.length}`;
+    const dailyResetDiv = document.getElementById('daily-reset-time');
+    if (dailyResetDiv) dailyResetDiv.innerText = `Daily Reset: ${new Date(snail.dailyReset).toLocaleTimeString()}`;
+    const weeklyResetDiv = document.getElementById('weekly-reset-time');
+    if (weeklyResetDiv) weeklyResetDiv.innerText = `Weekly Reset: ${new Date(snail.weeklyReset).toLocaleTimeString()}`;
+    // Update challenge progress bars
+    updateChallengeUI('daily', snail.dailyChallenges, snail.dailyProgress, snail.dailyComplete);
+    updateChallengeUI('weekly', snail.weeklyChallenges, snail.weeklyProgress, snail.weeklyComplete);
+    // Update hazard timer in score panel
+    const hazardTimerDiv = document.getElementById('hazard-timer');
+    if (hazardTimerDiv) {
+        hazardTimerDiv.innerHTML = `Next Hazard: <span style='color:#ffd700;'>${Math.ceil(hazardTimer)}s</span>`;
+    }
+    // Update upgrade button cost display
+    upgradeDefs.forEach(upg => {
+        const btn = document.getElementById(upg.id);
+        if (btn) {
+            const costSpan = btn.querySelector('.upgrade-cost');
+            if (costSpan) {
+                costSpan.innerText = ` (${upg.cost} Slime)`;
+            }
+            const nameSpan = btn.querySelector('.upgrade-name');
+            if (nameSpan) {
+                nameSpan.innerText = upg.name;
+            }
+        }
+    });
+    // Prestige requirements and cost
+    const prestigeBtn = document.getElementById('prestigeBtn');
+    const prestigeCostSpan = prestigeBtn ? prestigeBtn.querySelector('.prestige-cost') : null;
+    const prestigeLevelSpan = prestigeBtn ? prestigeBtn.querySelector('.prestige-level') : null;
+    if (prestigeBtn) {
+        // Set button label to next prestige number in roman
+        const nextPrestigeRoman = toRoman(snail.prestige + 1);
+        const prestigeNameSpan = prestigeBtn.querySelector('.prestige-name');
+        if (prestigeNameSpan) {
+            prestigeNameSpan.innerText = `Prestige: ${nextPrestigeRoman}`;
+        }
+    }
+    if (prestigeCostSpan) {
+        prestigeCostSpan.innerHTML =
+            `<span style="font-size:13px;color:#ffd700;">Requires: ${getPrestigeCost()} Slime</span><br>` +
+            `<span style="font-size:11px;color:#ccc;">Requires Lv120+</span>`;
+    }
+    if (prestigeLevelSpan) {
+        prestigeLevelSpan.innerText = '';
+    }
+}
+
 function gameLoop(now) {
     let dt = now - lastTime;
     lastTime = now;
-    // Speed up animation if turbo is active
     frameTimer += dt;
     let turbo = snail.turboActive;
-    let turboSpeed = turbo ? 80 : 200; // 80ms per frame if turbo
+    let turboSpeed = turbo ? 80 : 200;
     if (frameTimer > turboSpeed) {
         frame = (frame + 1) % 3;
         frameTimer = 0;
@@ -477,113 +586,12 @@ function gameLoop(now) {
     requestAnimationFrame(gameLoop);
 }
 
-function getPrestigeCost() {
-    return Math.floor(12000 * Math.pow(1.75, snail.prestige));
-}
-
-document.getElementById('prestigeBtn').onclick = () => {
-    const currentCost = getPrestigeCost();
-    if (snail.level >= 120 && snail.slimePoints >= currentCost) {
-        prestige();
-    } else if (snail.level < 120) {
-        showAlert('Reach level 120 to prestige!', 'error');
-    } else if (snail.slimePoints < currentCost) {
-        showAlert('Not enough slime to prestige!', 'error');
-    }
-};
-
-const prestigeCost = 10000;
-function prestige() {
-    const currentCost = getPrestigeCost();
-    if (snail.level >= 120 && snail.slimePoints >= currentCost) {
-        snail.prestige++;
-        // Permanent boosts
-        const baseSpeed = 1 + snail.prestige * 0.2;
-        const baseEfficiency = 1 + snail.prestige * 0.1;
-        // Reset all stats except prestige and skin
-        snail.distance = 0;
-        snail.slimePoints = 0;
-        snail.speed = baseSpeed;
-        snail.slimeEfficiency = baseEfficiency;
-        snail.trailBoosters = 1;
-        snail.isMoving = true;
-        snail.turboActive = false;
-        snail.turboTimer = 0;
-        snail.checkpoint = 0;
-        snail.mutations = [];
-        snail.level = 1;
-        // Reset upgrades
-        upgradeDefs.forEach(upg => { upg.purchased = 0; upg.cost = upg.baseCost; });
-        // Change snail sprite
-        snail.skin = snail.prestige % 2;
-        showAlert('Prestige! Permanent boost unlocked!', 'success');
-        // Guarantee mutation unlock after prestige
-        const locked = mutationDefs.filter(m => !(snail.unlockedMutations && snail.unlockedMutations.includes(m.id)));
-        let mutUnlocked = false;
-        if (locked.length > 0) {
-            const mut = locked[Math.floor(Math.random() * locked.length)];
-            if (!snail.unlockedMutations) snail.unlockedMutations = [];
-            snail.unlockedMutations.push(mut.id);
-            showAlert(`Mutation unlocked: ${mut.name}!`, 'success');
-            mutUnlocked = true;
-        }
-        // Guarantee pet unlock after prestige
-        const lockedPets = petDefs.filter(p => !(snail.unlockedPets && snail.unlockedPets.includes(p.id)));
-        let petUnlocked = false;
-        if (lockedPets.length > 0) {
-            const pet = lockedPets[Math.floor(Math.random() * lockedPets.length)];
-            if (!snail.unlockedPets) snail.unlockedPets = [];
-            snail.unlockedPets.push(pet.id);
-            snail.pet = pet.id; // auto-equip new pet
-            snail.petLevel = 1;
-            showAlert(`Pet unlocked: ${pet.name}!`, 'success');
-            petUnlocked = true;
-        }
-        // Count prestige for challenges
-        let changed = false;
-        snail.dailyChallenges.forEach((ch, i) => {
-            if (ch.id === 'prestigeDaily' && !snail.dailyComplete[i]) {
-                snail.dailyProgress[i] = Math.min(snail.dailyProgress[i] + 1, ch.goal);
-                if (snail.dailyProgress[i] >= ch.goal) snail.dailyComplete[i] = true;
-                changed = true;
-            }
-            if (ch.id === 'unlockMutationDaily' && mutUnlocked && !snail.dailyComplete[i]) {
-                snail.dailyProgress[i] = Math.min(snail.dailyProgress[i] + 1, ch.goal);
-                if (snail.dailyProgress[i] >= ch.goal) snail.dailyComplete[i] = true;
-                changed = true;
-            }
-        });
-        snail.weeklyChallenges.forEach((ch, i) => {
-            if (ch.id === 'prestigeWeekly' && !snail.weeklyComplete[i]) {
-                snail.weeklyProgress[i] = Math.min(snail.weeklyProgress[i] + 1, ch.goal);
-                if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
-                changed = true;
-            }
-            if (ch.id === 'unlockMutationWeekly' && mutUnlocked && !snail.weeklyComplete[i]) {
-                snail.weeklyProgress[i] = Math.min(snail.weeklyProgress[i] + 1, ch.goal);
-                if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
-                changed = true;
-            }
-        });
-        if (changed) saveGame();
-    }
-}
-
-function showAlert(message, type = 'info') {
-    const alertContainer = document.getElementById('alert-container');
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `custom-alert ${type}`;
-    alertDiv.innerText = message;
-    alertContainer.appendChild(alertDiv);
-    setTimeout(() => {
-        alertDiv.remove();
-    }, 3000);
-}
-
+// --- Hazard Spawning ---
+// Always spawn hazard when timer reaches zero, regardless of active effects
 function updateSnail(dt) {
     updatePetLevel();
     applyPetEffects();
-    // --- Fix: Restore movement after movementDisabledUntil ---
+    // Restore movement after movementDisabledUntil
     if (snail.movementDisabledUntil && performance.now() > snail.movementDisabledUntil) {
         snail.isMoving = true;
         snail.movementDisabledUntil = null;
@@ -591,9 +599,9 @@ function updateSnail(dt) {
     if (snail.isMoving) {
         let speed = snail.speed;
         if (snail.turboActive) speed *= 2;
-        // Apply hazard effect modifiers
-        if (activeHazardEffect) {
-            switch (activeHazardEffect.type) {
+        // Apply all hazard effect modifiers
+        activeHazardEffects.forEach(effect => {
+            switch (effect.type) {
                 case 'salt':
                     speed *= 0.5;
                     break;
@@ -603,32 +611,26 @@ function updateSnail(dt) {
                 case 'shadow':
                     speed *= 0.6;
                     break;
-                case 'spikedShell': // mutation example
+                case 'spikedShell':
                     speed *= 0.9;
                     break;
             }
-        }
-        // Apply pet speed multiplier
+        });
         speed *= snail.speedMultiplier || 1;
         let efficiency = snail.slimeEfficiency;
         let slimeGain = speed * efficiency * (dt / 1000);
-        // Apply pet slime gain multiplier
         slimeGain *= snail.slimeGainMultiplier || 1;
         snail.distance += speed * efficiency * (dt / 1000);
         snail.slimePoints += slimeGain;
     }
 
-    // --- Hazard Timer Logic ---
+    // Hazard timer logic
     if (!window.lastHazardTime) window.lastHazardTime = performance.now();
     let elapsed = (performance.now() - window.lastHazardTime) / 1000;
     hazardTimer = Math.max(0, hazardInterval - elapsed);
 
-    // Only spawn hazard if timer reaches zero and no effect is currently active
-    if (
-        hazardTimer <= 0 &&
-        !activeHazardEffect &&
-        !bossHazardActive
-    ) {
+    // Always spawn hazard when timer reaches zero
+    if (hazardTimer <= 0 && !bossHazardActive) {
         hazardCount++;
         if (hazardCount % 5 === 0) {
             spawnBossHazard();
@@ -661,16 +663,14 @@ function updateSnail(dt) {
     // Check for hazard collisions/effects
     hazards.forEach(hazard => {
         if (!hazard.active) return;
-        if (Math.abs(snail.distance - hazard.x) < 50 && !activeHazardEffect) {
+        if (Math.abs(snail.distance - hazard.x) < 50) {
             applyHazardEffect(hazard);
             hazard.active = false;
         }
     });
 
-    // Handle hazard effect timer
-    if (activeHazardEffect && performance.now() > activeHazardEffect.endTime) {
-        clearHazardEffect();
-    }
+    // Handle hazard effect timers
+    clearExpiredHazardEffects();
 
     // Checkpoint logic
     snail.checkpoint = Math.floor(snail.distance / checkpointDistance);
@@ -888,102 +888,19 @@ function getHazardDescription(type) {
     }
 }
 
-// --- UI Update ---
-function isMobile() {
-    return window.innerWidth <= 600;
+function showAlert(message, type = 'info') {
+    const alertContainer = document.getElementById('alert-container');
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `custom-alert ${type}`;
+    alertDiv.innerText = message;
+    alertContainer.appendChild(alertDiv);
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
 }
 
-function updateUI() {
-    document.getElementById('distance').innerText = `Distance: ${snail.distance.toFixed(2)} m`;
-    document.getElementById('slimePoints').innerText = `Slime: ${Math.floor(snail.slimePoints)}`;
-    let sceneryIndex = Number.isFinite(snail.checkpoint) && snail.checkpoint >= 0 ? snail.checkpoint % scenery.length : 0;
-    let checkpointName = (scenery[sceneryIndex] && scenery[sceneryIndex].name) ? scenery[sceneryIndex].name : scenery[0].name;
-    document.getElementById('checkpoint').innerText = `Checkpoint: ${checkpointName}`;
-    document.getElementById('prestige').innerText = `Prestige: ${toRoman(snail.prestige)}`;
-    // Remove mutation display from info panel
-    // const mutDiv = document.getElementById('mutations');
-    // if (mutDiv) mutDiv.style.display = 'none';
-    // Remove Turbo Slime info from info panel
-    const turboDiv = document.getElementById('turboInfo');
-    if (turboDiv) turboDiv.remove();
-    const currentCost = getPrestigeCost();
-    const prestigeBtn = document.getElementById('prestigeBtn');
-    if (isMobile()) {
-        // First line: icon and prestige number
-        prestigeBtn.innerHTML =
-            `<span style="display:flex;align-items:center;justify-content:center;">
-                🦑 <span style="margin-left:6px;font-weight:bold;color:#ffd700;">${toRoman(snail.prestige + 1)}</span>
-            </span>
-            <span class="prestige-cost" style="display:block;font-size:10px;color:#ffd700;text-align:center;margin-top:2px;">
-                Cost: ${currentCost}
-            </span>
-            <span class="prestige-level" style="display:block;font-size:10px;color:#ffd700;text-align:center;">
-                Level: 120+
-            </span>`;
-        prestigeBtn.disabled = !(snail.level >= 120 && snail.slimePoints >= currentCost);
-    } else {
-        prestigeBtn.innerHTML = `🦑 <span>Prestige: <span style='color:#ffd700'>${toRoman(snail.prestige + 1)}</span><br><span style='font-size:0.85em'>Requirements:</span><br><span style='font-size:0.75em'>Cost: <span style='color:#ffd700'>${currentCost}</span>, Level: <span style='color:#ffd700'>120+</span></span></span>`;
-        prestigeBtn.disabled = !(snail.level >= 120 && snail.slimePoints >= currentCost);
-    }
-    // Hazard timer UI in score panel: only show "Next Hazard" countdown
-    const hazardTimerDiv = document.getElementById('hazard-timer');
-    if (hazardTimerDiv) {
-        hazardTimerDiv.innerHTML = `Next Hazard: <span style='color:#ffd700;'>${Math.ceil(hazardTimer)}s</span>`;
-    }
-    // Challenge UI is now in challenge-window
-    const dailyDiv = document.getElementById('dailyChallenge');
-    if (dailyDiv) {
-        let html = `<b style='color:#ffd700;'>Daily Challenges</b> <span style='font-size:12px;color:#ccc;'>(Resets in ${getTimeLeft(snail.dailyReset)})</span><br>`;
-        if (snail.dailyChallenges && snail.dailyChallenges.length) {
-            snail.dailyChallenges.forEach((ch, i) => {
-                html += `<div style='margin-bottom:2px;'>${i+1}. <span style='color:#ffd700;'>${ch.desc}</span><br>Progress: <span style='color:#00e676;'>${Number(snail.dailyProgress[i]).toFixed(2)}/${Number(ch.goal).toFixed(2)}</span> ${snail.dailyComplete[i] ? "<span style='color:#00e676;'>(Complete!)</span>" : ''}</div>`;
-            });
-        } else {
-            html += `<div style='margin-bottom:2px;color:#ccc;'>No daily challenges found.</div>`;
-        }
-        dailyDiv.innerHTML = html;
-    }
-    const weeklyDiv = document.getElementById('weeklyChallenge');
-    if (weeklyDiv) {
-        let html = `<b style='color:#ffd700;'>Weekly Challenges</b> <span style='font-size:12px;color:#ccc;'>(Resets in ${getTimeLeft(snail.weeklyReset, true)})</span><br>`;
-        if (snail.weeklyChallenges && snail.weeklyChallenges.length) {
-            for (let i = 0; i < snail.weeklyChallenges.length; i++) {
-                const ch = snail.weeklyChallenges[i];
-                const progress = Array.isArray(snail.weeklyProgress) && snail.weeklyProgress[i] !== undefined ? snail.weeklyProgress[i] : 0;
-                const complete = Array.isArray(snail.weeklyComplete) && snail.weeklyComplete[i] !== undefined ? snail.weeklyComplete[i] : false;
-                html += `<div style='margin-bottom:2px;'>${i+1}. <span style='color:#ffd700;'>${ch.desc}</span><br>Progress: <span style='color:#00e676;'>${Number(progress).toFixed(2)}/${Number(ch.goal).toFixed(2)}</span> ${complete ? "<span style='color:#00e676;'>(Complete!)</span>" : ''}</div>`;
-            }
-        } else {
-            html += `<div style='margin-bottom:2px;color:#ccc;'>No weekly challenges found.</div>`;
-        }
-        weeklyDiv.innerHTML = html;
-    }
-    // Helper for reset countdown
-    function getTimeLeft(resetTs, showDay) {
-        const now = Date.now();
-        let sec = Math.max(0, Math.floor((resetTs - now) / 1000));
-        const d = Math.floor(sec / 86400);
-        const h = Math.floor((sec % 86400) / 3600);
-        const m = Math.floor((sec % 3600) / 60);
-        const s = sec % 60;
-        if (showDay) {
-            const resetDate = new Date(resetTs);
-            const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-            const dayStr = days[resetDate.getDay()];
-            return `${d}d ${h}h ${m}m ${s}s (${dayStr}, CET)`;
-        }
-        return `${h}h ${m}m ${s}s`;
-    }
-    upgradeDefs.forEach(upg => {
-        const btn = document.getElementById(upg.id);
-        // Keep emoji icon in button text
-        if (upg.id === 'speedShell') btn.innerHTML = `🐚 <span>${upg.name} (${upg.cost} Slime)</span>`;
-        else if (upg.id === 'slimeBooster') btn.innerHTML = `🧪 <span>${upg.name} (${upg.cost} Slime)</span>`;
-        else if (upg.id === 'turboSlime') btn.innerHTML = `⚡ <span>${upg.name} (${upg.cost} Slime)</span>`;
-        // Only disable if not enough slime
-        btn.disabled = snail.slimePoints < upg.cost;
-        btn.title = upg.desc;
-    });
+function getPrestigeCost() {
+    return Math.floor(12000 * Math.pow(1.75, snail.prestige));
 }
 
 function toRoman(num) {
@@ -1350,21 +1267,23 @@ function drawGame() {
         ctx.fillText(`Turbo: ${Math.ceil(snail.turboTimer/1000)}s`, canvas.width/2, canvas.height/2 + yOffset);
         yOffset -= 25;
     }
-
-    // Draw hazard effect timer above turbo counter if active
     if (bossHazardActive && currentBossHazard) {
         ctx.font = 'bold 18px monospace';
         ctx.fillStyle = '#ff1744';
         const timeLeft = Math.max(0, Math.ceil((currentBossHazard.endTime - performance.now()) / 1000));
         ctx.fillText(`BOSS: ${currentBossHazard.name} (${timeLeft}s)`, canvas.width/2, canvas.height/2 + yOffset);
         yOffset -= 25;
-    } else if (activeHazardEffect) {
-        const timeLeft = Math.max(0, Math.ceil((activeHazardEffect.endTime - performance.now()) / 1000));
+    }
+    // Show all active hazard effects with counters, except puddle, wind, oil
+    activeHazardEffects.forEach(effect => {
+        // Only show counter for hazards that are not puddle, wind, oil
+        if (['puddle', 'wind', 'oil'].includes(effect.type)) return;
+        const timeLeft = Math.max(0, Math.ceil((effect.endTime - performance.now()) / 1000));
         ctx.font = 'bold 16px monospace';
         ctx.fillStyle = '#e74c3c';
-        ctx.fillText(`Hazard: ${activeHazardEffect.name} (${timeLeft}s)`, canvas.width/2, canvas.height/2 + yOffset);
+        ctx.fillText(`${effect.name} (${timeLeft}s)`, canvas.width/2, canvas.height/2 + yOffset);
         yOffset -= 25;
-    }
+    });
     ctx.restore();
 
     // Snail animation (walk, walk2, walk3, walk4, walk5, walk6 based on prestige)
@@ -1439,4 +1358,20 @@ function drawGame() {
         ctx.fillText(`Choose Pet`, canvas.width/2 + 66, canvas.height/2 - 24 + petYOffset);
         ctx.restore();
     }
+}
+
+function updateChallengeUI(type, challenges, progressArr, completeArr) {
+    // Defensive: only update if challenge window exists
+    const divId = type === 'daily' ? 'dailyChallenge' : 'weeklyChallenge';
+    const challengeDiv = document.getElementById(divId);
+    if (!challengeDiv) return;
+    let html = '';
+    if (challenges && challenges.length) {
+        challenges.forEach((ch, i) => {
+            html += `<div style='margin-bottom:2px;'>${i+1}. <span style='color:#ffd700;'>${ch.desc}</span><br>Progress: <span style='color:#00e676;'>${Number(progressArr[i]).toFixed(2)}/${Number(ch.goal).toFixed(2)}</span> ${completeArr[i] ? "<span style='color:#00e676;'>(Complete!)</span>" : ''}</div>`;
+        });
+    } else {
+        html = `<div style='margin-bottom:2px;color:#ccc;'>No ${type} challenges found.</div>`;
+    }
+    challengeDiv.innerHTML = html;
 }
