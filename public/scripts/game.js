@@ -1060,9 +1060,7 @@ window.addEventListener('DOMContentLoaded', () => {
             if (snail.slimePoints >= upg.cost) {
                 snail.slimePoints -= upg.cost;
                 upg.purchased = (upg.purchased || 0) + 1;
-                // Only turboSlime directly activates turbo
                 if (upg.id === 'turboSlime') upg.action();
-                // Recalculate upgrade cost
                 upg.cost = Math.floor(upg.baseCost * Math.pow(1.25, upg.purchased));
                 updateUI();
                 showAlert(`Upgraded: ${upg.name}!`, 'success');
@@ -1072,6 +1070,13 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         };
     });
+    // Add prestige button click handler
+    const prestigeBtn = document.getElementById('prestigeBtn');
+    if (prestigeBtn) {
+        prestigeBtn.onclick = () => {
+            prestige();
+        };
+    }
     // Hazard Book logic
     const hazardBookBtn = document.getElementById('open-hazard-book');
     const hazardBookMenu = document.getElementById('hazard-book-menu');
@@ -1421,5 +1426,24 @@ function getTimeLeft(resetTimestamp) {
         return `${min}m ${sec}s`;
     } else {
         return `${sec}s`;
+    }
+}
+
+// Add prestige function
+function prestige() {
+    // Requirements: enough slime and level 120+
+    if (snail.slimePoints >= getPrestigeCost() && snail.level >= 120) {
+        snail.prestige += 1;
+        snail.distance = 0;
+        snail.slimePoints = 0;
+        snail.level = 1;
+        snail.checkpoint = 0;
+        // Optionally reset upgrades, mutations, pets, etc. if desired
+        // upgradeDefs.forEach(upg => { upg.purchased = 0; upg.cost = upg.baseCost; });
+        showAlert(`Prestiged! You are now Prestige ${toRoman(snail.prestige)}!`, 'success');
+        saveGame();
+        updateUI();
+    } else {
+        showAlert('Prestige requirements not met!', 'error');
     }
 }
