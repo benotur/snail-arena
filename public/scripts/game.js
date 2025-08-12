@@ -379,6 +379,8 @@ function spawnHazard() {
 
 function spawnBossHazard() {
     const bossType = bossHazardTypes[Math.floor(Math.random() * bossHazardTypes.length)];
+    let duration = 20000; // default 20s
+    if (bossType.type === 'acidRain') duration = 18000;
     currentBossHazard = {
         type: bossType.type,
         name: bossType.name,
@@ -386,11 +388,18 @@ function spawnBossHazard() {
         effect: bossType.effect,
         desc: bossType.desc,
         created: performance.now(),
-        duration: 20000, // Boss hazards last 20s by default
-        endTime: performance.now() + 20000
+        duration: duration,
+        endTime: performance.now() + duration
     };
     bossHazardActive = true;
     showAlert(`BOSS HAZARD: ${bossType.name}!\n${bossType.desc}`, 'error');
+    // Add to activeHazardEffects for counter display
+    activeHazardEffects.push({
+        type: bossType.type,
+        name: bossType.name,
+        effect: bossType.effect,
+        endTime: currentBossHazard.endTime
+    });
 }
 
 // --- Hazard Effect State ---
@@ -597,6 +606,12 @@ function updateSnail(dt) {
         snail.movementDisabledUntil = null;
     }
     if (snail.isMoving) {
+        // Calculate base speed and efficiency from upgrades and prestige
+        let baseSpeed = 1 + snail.prestige * 0.2 + (upgradeDefs.find(u => u.id === 'speedShell')?.purchased || 0) * 0.5;
+        let baseEfficiency = 1 + snail.prestige * 0.1 + (upgradeDefs.find(u => u.id === 'slimeBooster')?.purchased || 0) * 0.5;
+        snail.speed = baseSpeed;
+        snail.slimeEfficiency = baseEfficiency;
+
         let speed = snail.speed;
         if (snail.turboActive) speed *= 2;
         // Apply all hazard effect modifiers
@@ -1045,12 +1060,13 @@ window.addEventListener('DOMContentLoaded', () => {
             if (snail.slimePoints >= upg.cost) {
                 snail.slimePoints -= upg.cost;
                 upg.purchased = (upg.purchased || 0) + 1;
-                upg.action();
-                // Exponential scaling for all upgrades
+                // Only turboSlime directly activates turbo
+                if (upg.id === 'turboSlime') upg.action();
+                // Recalculate upgrade cost
                 upg.cost = Math.floor(upg.baseCost * Math.pow(1.25, upg.purchased));
                 updateUI();
                 showAlert(`Upgraded: ${upg.name}!`, 'success');
-                saveGame(); // Save immediately after upgrade
+                saveGame();
             } else {
                 showAlert('Not enough slime!', 'error');
             }
@@ -1276,9 +1292,19 @@ function drawGame() {
     }
     // Show all active hazard effects with counters, except puddle, wind, oil
     activeHazardEffects.forEach(effect => {
-        // Only show counter for hazards that are not puddle, wind, oil
         if (['puddle', 'wind', 'oil'].includes(effect.type)) return;
-        const timeLeft = Math.max(0, Math.ceil((effect.endTime - performance.now()) / 1000));
+        // Boss hazard durations
+        let timeLeft;
+        if (['giantFoot', 'shadowBeast'].includes(effect.type)) {
+            // Giant Foot: 20s, Shadow Beast: 20s
+            timeLeft = Math.max(0, Math.ceil((effect.endTime - performance.now()) / 1000));
+        } else if (effect.type === 'acidRain') {
+            // Acid Rain: 18s
+            timeLeft = Math.max(0, Math.ceil((effect.endTime - performance.now()) / 1000));
+        } else {
+            // Normal hazards
+            timeLeft = Math.max(0, Math.ceil((effect.endTime - performance.now()) / 1000));
+        }
         ctx.font = 'bold 16px monospace';
         ctx.fillStyle = '#e74c3c';
         ctx.fillText(`${effect.name} (${timeLeft}s)`, canvas.width/2, canvas.height/2 + yOffset);
