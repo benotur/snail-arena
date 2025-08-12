@@ -1366,12 +1366,34 @@ function updateChallengeUI(type, challenges, progressArr, completeArr) {
     const challengeDiv = document.getElementById(divId);
     if (!challengeDiv) return;
     let html = '';
+    // Add reset counter at the top
+    if (type === 'daily') {
+        html += `<div style="font-size:12px;color:#ffd700;margin-bottom:6px;">Resets in: <span style="color:#00e676;">${getTimeLeft(snail.dailyReset)}</span></div>`;
+    } else {
+        html += `<div style="font-size:12px;color:#ffd700;margin-bottom:6px;">Resets in: <span style="color:#00e6ff;">${getTimeLeft(snail.weeklyReset)}</span></div>`;
+    }
     if (challenges && challenges.length) {
         challenges.forEach((ch, i) => {
             html += `<div style='margin-bottom:2px;'>${i+1}. <span style='color:#ffd700;'>${ch.desc}</span><br>Progress: <span style='color:#00e676;'>${Number(progressArr[i]).toFixed(2)}/${Number(ch.goal).toFixed(2)}</span> ${completeArr[i] ? "<span style='color:#00e676;'>(Complete!)</span>" : ''}</div>`;
         });
     } else {
-        html = `<div style='margin-bottom:2px;color:#ccc;'>No ${type} challenges found.</div>`;
+        html += `<div style='margin-bottom:2px;color:#ccc;'>No ${type} challenges found.</div>`;
     }
     challengeDiv.innerHTML = html;
+}
+
+// Helper for time left formatting
+function getTimeLeft(resetTimestamp) {
+    const now = Date.now();
+    let ms = Math.max(0, resetTimestamp - now);
+    let sec = Math.floor(ms / 1000) % 60;
+    let min = Math.floor(ms / 60000) % 60;
+    let hr = Math.floor(ms / 3600000);
+    if (hr > 0) {
+        return `${hr}h ${min}m ${sec}s`;
+    } else if (min > 0) {
+        return `${min}m ${sec}s`;
+    } else {
+        return `${sec}s`;
+    }
 }
