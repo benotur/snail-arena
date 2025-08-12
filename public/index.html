@@ -62,7 +62,7 @@
         🐾
     </button>
     <!-- Pet Switch Menu -->
-    <div id="pet-switch-menu" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:303;background:rgba(20,20,20,0.98);border-radius:18px;padding:24px 32px;box-shadow:0 4px 24px #000;max-width:340px;min-width:220px;max-height:70vh;overflow-y:auto;">
+    <div id="pet-switch-menu" style="display:none;position:fixed;top:calc(50% + 30px);left:50%;transform:translate(-50%,-50%);z-index:303;background:rgba(20,20,20,0.98);border-radius:18px;padding:24px 32px;box-shadow:0 4px 24px #000;max-width:340px;min-width:220px;max-height:70vh;overflow-y:auto;">
         <div style="font-size:22px;font-weight:bold;color:#00e6ff;margin-bottom:12px;text-align:center;">Switch Pet</div>
         <div id="pet-switch-list" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px;"></div>
         <button id="close-pet-switch-menu" style="margin-top:18px;padding:7px 18px;border-radius:8px;background:#222;color:#00e6ff;font-size:15px;border:none;cursor:pointer;">Close</button>
@@ -98,8 +98,10 @@
         const petSwitchMenu = document.getElementById('pet-switch-menu');
         const petSwitchList = document.getElementById('pet-switch-list');
         const closePetSwitchMenuBtn = document.getElementById('close-pet-switch-menu');
-        window.showPetSwitchMenu = function() {
-            petSwitchMenu.style.display = 'block';
+        // Animation frame for pet icons
+        let petSwitchFrame = 0;
+        let petSwitchAnimTimer = null;
+        function renderPetSwitchMenu() {
             petSwitchList.innerHTML = '';
             if (window.snail && window.petDefs && window.petSprites) {
                 window.petDefs.forEach(pet => {
@@ -107,20 +109,38 @@
                     if (!unlocked) return;
                     const div = document.createElement('div');
                     div.style = 'padding:8px 8px;border-radius:8px;min-width:0;word-break:break-word;font-size:13px;cursor:pointer;text-align:center;background:' + (window.snail.pet === pet.id ? '#222' : '');
-                    div.innerHTML = `<img src="${pet.asset}" style="width:32px;height:32px;display:block;margin:0 auto 4px auto;"><b style='color:#00e6ff;'>${pet.name}</b><br><span style='font-size:12px;color:#ccc;'>${pet.desc}</span>${window.snail.pet === pet.id ? "<br><span style='color:#00e676;'>Equipped</span>" : ""}`;
+                    // Remove animated canvas for sprite
+                    // Only show name, description, and equipped status
+                    div.innerHTML = `<b style='color:#00e6ff;'>${pet.name}</b><br><span style='font-size:12px;color:#ccc;'>${pet.desc}</span>${window.snail.pet === pet.id ? "<br><span style='color:#00e676;'>Equipped</span>" : ""}`;
                     div.onclick = function() {
                         window.snail.pet = pet.id;
                         window.snail.petLevel = window.snail.petLevel || 1;
                         petSwitchMenu.style.display = 'none';
                         if (window.updateUI) window.updateUI();
                         if (window.saveGame) window.saveGame();
+                        if (petSwitchAnimTimer) clearInterval(petSwitchAnimTimer);
                     };
                     petSwitchList.appendChild(div);
                 });
             }
+        }
+        window.showPetSwitchMenu = function() {
+            petSwitchMenu.style.display = 'block';
+            petSwitchFrame = 0;
+            renderPetSwitchMenu();
+            // Animate frames
+            if (petSwitchAnimTimer) clearInterval(petSwitchAnimTimer);
+            petSwitchAnimTimer = setInterval(() => {
+                petSwitchFrame = (petSwitchFrame + 1) % 4;
+                // Redraw all pet canvases
+                Array.from(petSwitchList.children).forEach(div => {
+                    if (div._drawFrame) div._drawFrame();
+                });
+            }, 180);
         };
         closePetSwitchMenuBtn.onclick = function() {
             petSwitchMenu.style.display = 'none';
+            if (petSwitchAnimTimer) clearInterval(petSwitchAnimTimer);
         };
         // Leaderboard menu logic for mobile
         function isMobile() {
@@ -178,8 +198,12 @@
     <canvas id="gameCanvas"></canvas>
     <script src="scripts/game.js"></script>
     <script>
-    // Mutation Book logic (calls game.js function)
     window.addEventListener('DOMContentLoaded', function() {
+        // Ensure global references for pet switch menu
+        window.snail = window.snail || snail;
+        window.petDefs = window.petDefs || petDefs;
+        window.petSprites = window.petSprites || petSprites;
+        // Mutation Book logic (calls game.js function)
         const mutationBookBtn = document.getElementById('open-mutation-book');
         const closeMutationBookBtn = document.getElementById('close-mutation-book');
         mutationBookBtn.onclick = function() {
@@ -208,8 +232,10 @@
         const petSwitchMenu = document.getElementById('pet-switch-menu');
         const petSwitchList = document.getElementById('pet-switch-list');
         const closePetSwitchMenuBtn = document.getElementById('close-pet-switch-menu');
-        window.showPetSwitchMenu = function() {
-            petSwitchMenu.style.display = 'block';
+        // Animation frame for pet icons
+        let petSwitchFrame = 0;
+        let petSwitchAnimTimer = null;
+        function renderPetSwitchMenu() {
             petSwitchList.innerHTML = '';
             if (window.snail && window.petDefs && window.petSprites) {
                 window.petDefs.forEach(pet => {
@@ -217,20 +243,38 @@
                     if (!unlocked) return;
                     const div = document.createElement('div');
                     div.style = 'padding:8px 8px;border-radius:8px;min-width:0;word-break:break-word;font-size:13px;cursor:pointer;text-align:center;background:' + (window.snail.pet === pet.id ? '#222' : '');
-                    div.innerHTML = `<img src="${pet.asset}" style="width:32px;height:32px;display:block;margin:0 auto 4px auto;"><b style='color:#00e6ff;'>${pet.name}</b><br><span style='font-size:12px;color:#ccc;'>${pet.desc}</span>${window.snail.pet === pet.id ? "<br><span style='color:#00e676;'>Equipped</span>" : ""}`;
+                    // Remove animated canvas for sprite
+                    // Only show name, description, and equipped status
+                    div.innerHTML = `<b style='color:#00e6ff;'>${pet.name}</b><br><span style='font-size:12px;color:#ccc;'>${pet.desc}</span>${window.snail.pet === pet.id ? "<br><span style='color:#00e676;'>Equipped</span>" : ""}`;
                     div.onclick = function() {
                         window.snail.pet = pet.id;
                         window.snail.petLevel = window.snail.petLevel || 1;
                         petSwitchMenu.style.display = 'none';
                         if (window.updateUI) window.updateUI();
                         if (window.saveGame) window.saveGame();
+                        if (petSwitchAnimTimer) clearInterval(petSwitchAnimTimer);
                     };
                     petSwitchList.appendChild(div);
                 });
             }
+        }
+        window.showPetSwitchMenu = function() {
+            petSwitchMenu.style.display = 'block';
+            petSwitchFrame = 0;
+            renderPetSwitchMenu();
+            // Animate frames
+            if (petSwitchAnimTimer) clearInterval(petSwitchAnimTimer);
+            petSwitchAnimTimer = setInterval(() => {
+                petSwitchFrame = (petSwitchFrame + 1) % 4;
+                // Redraw all pet canvases
+                Array.from(petSwitchList.children).forEach(div => {
+                    if (div._drawFrame) div._drawFrame();
+                });
+            }, 180);
         };
         closePetSwitchMenuBtn.onclick = function() {
             petSwitchMenu.style.display = 'none';
+            if (petSwitchAnimTimer) clearInterval(petSwitchAnimTimer);
         };
         // Leaderboard menu logic for mobile
         function isMobile() {

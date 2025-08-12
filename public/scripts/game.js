@@ -332,10 +332,17 @@ function handleInput(e) {
         return;
     }
     // Pet sprite click detection (right of snail)
+    // Move pet area slightly lower (e.g. +18px)
+    const petYOffset = 18;
+    const petAreaX1 = canvas.width/2 + 50;
+    const petAreaX2 = canvas.width/2 + 82;
+    const petAreaY1 = canvas.height/2 - 16 + petYOffset;
+    const petAreaY2 = canvas.height/2 + 16 + petYOffset;
+    const hasAnyPet = snail.unlockedPets && snail.unlockedPets.length > 0;
     if (
-        snail.pet && petSprites[snail.pet] &&
-        mx > canvas.width/2 + 50 && mx < canvas.width/2 + 82 &&
-        my > canvas.height/2 - 16 && my < canvas.height/2 + 16
+        hasAnyPet &&
+        mx > petAreaX1 && mx < petAreaX2 &&
+        my > petAreaY1 && my < petAreaY2
     ) {
         if (window.showPetSwitchMenu) window.showPetSwitchMenu();
         return;
@@ -814,6 +821,10 @@ petDefs.forEach(pet => {
     img.src = pet.asset;
     petSprites[pet.id] = img;
 });
+
+// Add placeholder image for pet area
+const petPlaceholderImg = new Image();
+petPlaceholderImg.src = 'assets/template.png';
 
 // --- Pet Leveling ---
 function updatePetLevel() {
@@ -1393,7 +1404,10 @@ function drawGame() {
         spriteH * 2
     );
 
-    // Draw pet sprite next to snail
+    // Draw pet sprite or placeholder next to snail
+    const petYOffset = 18; // Move pet sprite slightly lower
+    const petAreaX = canvas.width/2 + 50;
+    const petAreaY = canvas.height/2 - 16 + petYOffset;
     if (snail.pet && petSprites[snail.pet]) {
         // Use frame for animation (4 frames, 128x32)
         const petImg = petSprites[snail.pet];
@@ -1401,7 +1415,7 @@ function drawGame() {
         ctx.drawImage(
             petImg,
             petFrame * 32, 0, 32, 32,
-            canvas.width/2 + 50, canvas.height/2 - 16,
+            petAreaX, petAreaY,
             32, 32
         );
         // Show pet level above pet
@@ -1409,7 +1423,20 @@ function drawGame() {
         ctx.font = 'bold 14px monospace';
         ctx.fillStyle = '#00e6ff';
         ctx.textAlign = 'center';
-        ctx.fillText(`Pet Lv${snail.petLevel}`, canvas.width/2 + 66, canvas.height/2 - 24);
+        ctx.fillText(`Lv${snail.petLevel}`, canvas.width/2 + 66, canvas.height/2 - 24 + petYOffset);
+        ctx.restore();
+    } else if (snail.unlockedPets && snail.unlockedPets.length > 0) {
+        ctx.drawImage(
+            petPlaceholderImg,
+            0, 0, 32, 32,
+            petAreaX, petAreaY,
+            32, 32
+        );
+        ctx.save();
+        ctx.font = 'bold 13px monospace';
+        ctx.fillStyle = '#00e6ff';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Choose Pet`, canvas.width/2 + 66, canvas.height/2 - 24 + petYOffset);
         ctx.restore();
     }
 }
