@@ -1435,7 +1435,7 @@ function prestige() {
     if (snail.slimePoints >= getPrestigeCost() && snail.level >= 120) {
         snail.prestige += 1;
         snail.distance = 0;
-        // Keep slimePoints (do not reset to 0)
+        snail.slimePoints = 0; // Reset slime currency
         snail.level = 1;
         snail.checkpoint = 0;
         // Reset upgrades
@@ -1446,6 +1446,9 @@ function prestige() {
         // Reset stats to base, but apply prestige boost
         snail.speed = 1 + snail.prestige * 0.2;
         snail.slimeEfficiency = 1 + snail.prestige * 0.1;
+        // Reset turbo counter
+        snail.turboActive = false;
+        snail.turboTimer = 0;
         // Guarantee mutation unlock
         const nextMutation = mutationDefs.find(mut => !snail.unlockedMutations.includes(mut.id));
         if (nextMutation) {

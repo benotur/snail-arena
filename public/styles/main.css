@@ -256,15 +256,15 @@
 @media (max-width: 600px) {
     #prestigeBtn {
         position: absolute;
-        right: 12px;
+        right: 16px;
         bottom: 12px;
         left: auto;
         transform: none;
-        font-size: 20px;
+        font-size: 18px;
         padding: 7px 12px;
         border-radius: 16px;
         min-width: 120px;
-        max-width: 200px;
+        max-width: 150px;
         display: inline-flex;
         align-items: center;
         gap: 8px;
