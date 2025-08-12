@@ -1438,8 +1438,18 @@ function prestige() {
         snail.slimePoints = 0;
         snail.level = 1;
         snail.checkpoint = 0;
-        // Optionally reset upgrades, mutations, pets, etc. if desired
-        // upgradeDefs.forEach(upg => { upg.purchased = 0; upg.cost = upg.baseCost; });
+        // Guarantee mutation unlock
+        const nextMutation = mutationDefs.find(mut => !snail.unlockedMutations.includes(mut.id));
+        if (nextMutation) {
+            snail.unlockedMutations.push(nextMutation.id);
+            showAlert(`Unlocked mutation: ${nextMutation.name}!`, 'success');
+        }
+        // Guarantee pet unlock
+        const nextPet = petDefs.find(pet => !snail.unlockedPets.includes(pet.id));
+        if (nextPet) {
+            snail.unlockedPets.push(nextPet.id);
+            showAlert(`Unlocked pet: ${nextPet.name}!`, 'success');
+        }
         showAlert(`Prestiged! You are now Prestige ${toRoman(snail.prestige)}!`, 'success');
         saveGame();
         updateUI();
