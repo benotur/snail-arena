@@ -50,6 +50,23 @@
     <button id="open-hazard-book" style="position:fixed;top:120px;right:24px;z-index:250;padding:12px 18px;border-radius:50px;background:#222;color:#ffd700;font-size:22px;border:none;cursor:pointer;margin-bottom:8px;display:inline-flex;align-items:center;gap:8px;">
         ⚠️
     </button>
+    <!-- Pet Book Menu -->
+    <div id="pet-book-menu" style="position:fixed;top:50px;right:50px;z-index:302;background:rgba(20,20,20,0.98);border-radius:18px;padding:24px 32px;box-shadow:0 4px 24px #000;display:none;max-width:340px;min-width:220px;max-height:70vh;overflow-y:auto;">
+        <div style="font-size:22px;font-weight:bold;color:#00e6ff;margin-bottom:12px;text-align:center;">Pet Book</div>
+        <div style="font-size:13px;color:#fff;margin-bottom:14px;text-align:center;line-height:1.4;">Unlock pets by prestiging. Pets have powerful effects and level up every 20,000m (max Lv60).</div>
+        <div id="pet-book-list" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px;"></div>
+        <button id="close-pet-book" style="margin-top:18px;padding:7px 18px;border-radius:8px;background:#222;color:#00e6ff;font-size:15px;border:none;cursor:pointer;">Close</button>
+    </div>
+    <!-- Pet Book Button (icon only) -->
+    <button id="open-pet-book" style="position:fixed;top:168px;right:24px;z-index:249;padding:12px 18px;border-radius:50px;background:#222;color:#00e6ff;font-size:22px;border:none;cursor:pointer;pointer-events:auto;margin-bottom:8px;display:inline-flex;align-items:center;gap:8px;">
+        🐾
+    </button>
+    <!-- Pet Switch Menu -->
+    <div id="pet-switch-menu" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:303;background:rgba(20,20,20,0.98);border-radius:18px;padding:24px 32px;box-shadow:0 4px 24px #000;max-width:340px;min-width:220px;max-height:70vh;overflow-y:auto;">
+        <div style="font-size:22px;font-weight:bold;color:#00e6ff;margin-bottom:12px;text-align:center;">Switch Pet</div>
+        <div id="pet-switch-list" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px;"></div>
+        <button id="close-pet-switch-menu" style="margin-top:18px;padding:7px 18px;border-radius:8px;background:#222;color:#00e6ff;font-size:15px;border:none;cursor:pointer;">Close</button>
+    </div>
     <script>
     // Mutation Book logic (calls game.js function)
     window.addEventListener('DOMContentLoaded', function() {
@@ -68,6 +85,63 @@
         document.getElementById('close-challenge-window').onclick = function() {
             document.getElementById('challenge-window').style.display = 'none';
         };
+        // Pet Book logic
+        const petBookBtn = document.getElementById('open-pet-book');
+        const closePetBookBtn = document.getElementById('close-pet-book');
+        petBookBtn.onclick = function() {
+            if (window.showPetBook) window.showPetBook();
+        };
+        closePetBookBtn.onclick = function() {
+            document.getElementById('pet-book-menu').style.display = 'none';
+        };
+        // Pet Switch Menu logic
+        const petSwitchMenu = document.getElementById('pet-switch-menu');
+        const petSwitchList = document.getElementById('pet-switch-list');
+        const closePetSwitchMenuBtn = document.getElementById('close-pet-switch-menu');
+        window.showPetSwitchMenu = function() {
+            petSwitchMenu.style.display = 'block';
+            petSwitchList.innerHTML = '';
+            if (window.snail && window.petDefs && window.petSprites) {
+                window.petDefs.forEach(pet => {
+                    const unlocked = window.snail.unlockedPets && window.snail.unlockedPets.includes(pet.id);
+                    if (!unlocked) return;
+                    const div = document.createElement('div');
+                    div.style = 'padding:8px 8px;border-radius:8px;min-width:0;word-break:break-word;font-size:13px;cursor:pointer;text-align:center;background:' + (window.snail.pet === pet.id ? '#222' : '');
+                    div.innerHTML = `<img src="${pet.asset}" style="width:32px;height:32px;display:block;margin:0 auto 4px auto;"><b style='color:#00e6ff;'>${pet.name}</b><br><span style='font-size:12px;color:#ccc;'>${pet.desc}</span>${window.snail.pet === pet.id ? "<br><span style='color:#00e676;'>Equipped</span>" : ""}`;
+                    div.onclick = function() {
+                        window.snail.pet = pet.id;
+                        window.snail.petLevel = window.snail.petLevel || 1;
+                        petSwitchMenu.style.display = 'none';
+                        if (window.updateUI) window.updateUI();
+                        if (window.saveGame) window.saveGame();
+                    };
+                    petSwitchList.appendChild(div);
+                });
+            }
+        };
+        closePetSwitchMenuBtn.onclick = function() {
+            petSwitchMenu.style.display = 'none';
+        };
+        // Leaderboard menu logic for mobile
+        function isMobile() {
+            return window.innerWidth <= 600;
+        }
+        const leaderboardBox = document.getElementById('leaderboard-box');
+        const leaderboardMenu = document.getElementById('leaderboard-menu');
+        const leaderboardMenuList = document.getElementById('leaderboard-menu-list');
+        const closeLeaderboardMenuBtn = document.getElementById('close-leaderboard-menu');
+        if (leaderboardBox && leaderboardMenu && leaderboardMenuList && closeLeaderboardMenuBtn) {
+            leaderboardBox.onclick = function() {
+                if (isMobile()) {
+                    // Copy leaderboard content
+                    leaderboardMenuList.innerHTML = document.getElementById('leaderboard-list').innerHTML;
+                    leaderboardMenu.style.display = 'block';
+                }
+            };
+            closeLeaderboardMenuBtn.onclick = function() {
+                leaderboardMenu.style.display = 'none';
+            };
+        }
     });
     </script>
     <div id="ui-container">
@@ -120,6 +194,43 @@
         };
         document.getElementById('close-challenge-window').onclick = function() {
             document.getElementById('challenge-window').style.display = 'none';
+        };
+        // Pet Book logic
+        const petBookBtn = document.getElementById('open-pet-book');
+        const closePetBookBtn = document.getElementById('close-pet-book');
+        petBookBtn.onclick = function() {
+            if (window.showPetBook) window.showPetBook();
+        };
+        closePetBookBtn.onclick = function() {
+            document.getElementById('pet-book-menu').style.display = 'none';
+        };
+        // Pet Switch Menu logic
+        const petSwitchMenu = document.getElementById('pet-switch-menu');
+        const petSwitchList = document.getElementById('pet-switch-list');
+        const closePetSwitchMenuBtn = document.getElementById('close-pet-switch-menu');
+        window.showPetSwitchMenu = function() {
+            petSwitchMenu.style.display = 'block';
+            petSwitchList.innerHTML = '';
+            if (window.snail && window.petDefs && window.petSprites) {
+                window.petDefs.forEach(pet => {
+                    const unlocked = window.snail.unlockedPets && window.snail.unlockedPets.includes(pet.id);
+                    if (!unlocked) return;
+                    const div = document.createElement('div');
+                    div.style = 'padding:8px 8px;border-radius:8px;min-width:0;word-break:break-word;font-size:13px;cursor:pointer;text-align:center;background:' + (window.snail.pet === pet.id ? '#222' : '');
+                    div.innerHTML = `<img src="${pet.asset}" style="width:32px;height:32px;display:block;margin:0 auto 4px auto;"><b style='color:#00e6ff;'>${pet.name}</b><br><span style='font-size:12px;color:#ccc;'>${pet.desc}</span>${window.snail.pet === pet.id ? "<br><span style='color:#00e676;'>Equipped</span>" : ""}`;
+                    div.onclick = function() {
+                        window.snail.pet = pet.id;
+                        window.snail.petLevel = window.snail.petLevel || 1;
+                        petSwitchMenu.style.display = 'none';
+                        if (window.updateUI) window.updateUI();
+                        if (window.saveGame) window.saveGame();
+                    };
+                    petSwitchList.appendChild(div);
+                });
+            }
+        };
+        closePetSwitchMenuBtn.onclick = function() {
+            petSwitchMenu.style.display = 'none';
         };
         // Leaderboard menu logic for mobile
         function isMobile() {

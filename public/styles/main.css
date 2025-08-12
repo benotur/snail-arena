@@ -41,7 +41,8 @@
 /* --- Book Buttons --- */
 #open-challenge-window,
 #open-mutation-book,
-#open-hazard-book {
+#open-hazard-book,
+#open-pet-book {
     font-size: 22px;
     padding: 12px 18px;
     border-radius: 50px;
@@ -62,7 +63,8 @@
 }
 #open-challenge-window:hover,
 #open-mutation-book:hover,
-#open-hazard-book:hover {
+#open-hazard-book:hover,
+#open-pet-book:hover {
     background: rgba(255,255,255,0.10);
     color: #fff;
 }
@@ -84,6 +86,43 @@
 }
 #hazard-book-list {
     margin-bottom: 8px;
+}
+
+/* --- Pet Book Menu --- */
+#pet-book-menu {
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.28);
+    border: none;
+    color: #fff;
+    font-family: 'Press Start 2P', monospace, Arial, sans-serif;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+#pet-book-list {
+    margin-bottom: 8px;
+}
+#open-pet-book {
+    font-size: 22px;
+    padding: 12px 18px;
+    border-radius: 50px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 8px;
+    background: rgba(0,0,0,0.92);
+    color: #00e6ff;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.22);
+    backdrop-filter: blur(6px);
+}
+#open-pet-book:hover {
+    background: rgba(255,255,255,0.10);
+    color: #fff;
 }
 
 /* --- Score Panel --- */

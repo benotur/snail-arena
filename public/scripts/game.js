@@ -34,7 +34,10 @@ let snail = {
     weeklyProgress: Array(10).fill(0),
     weeklyComplete: Array(10).fill(false),
     dailyReset: 0,
-    weeklyReset: 0
+    weeklyReset: 0,
+    pet: null, // current pet id
+    petLevel: 1,
+    unlockedPets: [] // array of pet ids
 };
 // --- Challenge Definitions ---
 const challengeDefs = [
@@ -326,7 +329,127 @@ function handleInput(e) {
     // Only handle prestige button (bottom left)
     if (mx > 20 && mx < 200 && my > canvas.height - 60 && my < canvas.height - 20) {
         prestige();
+        return;
     }
+    // Pet sprite click detection (right of snail)
+    if (
+        snail.pet && petSprites[snail.pet] &&
+        mx > canvas.width/2 + 50 && mx < canvas.width/2 + 82 &&
+        my > canvas.height/2 - 16 && my < canvas.height/2 + 16
+    ) {
+        if (window.showPetSwitchMenu) window.showPetSwitchMenu();
+        return;
+    }
+}
+
+// --- Global State Fixes ---
+let activeHazardEffect = null; // Track current hazard effect
+
+// --- Pet Effect Variables ---
+snail.slimeGainMultiplier = 1;
+snail.speedMultiplier = 1;
+snail.turboDurationMultiplier = 1;
+snail.hazardImmunityDuration = 0;
+snail.hazardReduction = 0;
+
+// --- Hazard Spawning ---
+function spawnHazard() {
+    const type = hazardTypes[Math.floor(Math.random()*hazardTypes.length)];
+    const duration = 12000 + Math.random()*6000; // 12-18 seconds
+    const hazardObj = {
+        type: type.type,
+        name: type.name,
+        color: type.color,
+        effect: type.effect,
+        x: snail.distance + 300 + Math.random()*200,
+        active: true,
+        created: performance.now(),
+        duration: duration
+    };
+    hazards.push(hazardObj);
+    showAlert(`${type.name} spawned!`, 'info');
+}
+
+function spawnBossHazard() {
+    const bossType = bossHazardTypes[Math.floor(Math.random() * bossHazardTypes.length)];
+    currentBossHazard = {
+        type: bossType.type,
+        name: bossType.name,
+        color: bossType.color,
+        effect: bossType.effect,
+        desc: bossType.desc,
+        created: performance.now(),
+        duration: 20000, // Boss hazards last 20s by default
+        endTime: performance.now() + 20000
+    };
+    bossHazardActive = true;
+    showAlert(`BOSS HAZARD: ${bossType.name}!\n${bossType.desc}`, 'error');
+}
+
+// --- Hazard Effect State ---
+function applyHazardEffect(hazard) {
+    activeHazardEffect = {
+        type: hazard.type,
+        name: hazard.name,
+        effect: hazard.effect,
+        endTime: performance.now() + hazard.duration
+    };
+    switch(hazard.type) {
+        case 'salt':
+            snail.speed *= 0.5;
+            snail.speedShellDisabledUntil = performance.now() + 30000;
+            showAlert('Salt Patch! Speed halved, Speed Shell disabled for 30s!', 'error');
+            break;
+        case 'bird':
+            snail.isMoving = false;
+            snail.slimePoints = Math.floor(snail.slimePoints * 0.9);
+            snail.movementDisabledUntil = performance.now() + 10000;
+            showAlert('Bird Attack! Lost 10% slime, stopped for 10s!', 'error');
+            break;
+        case 'puddle':
+            snail.distance += 120;
+            showAlert('Puddle! Slid forward 120m!', 'info');
+            clearHazardEffect();
+            break;
+        case 'pebble':
+            snail.isMoving = false;
+            snail.movementDisabledUntil = performance.now() + 8000;
+            showAlert('Pebble! Blocked for 8s!', 'error');
+            break;
+        case 'ants':
+            snail.slimeEfficiency *= 0.5;
+            snail.efficiencyRestoreAt = performance.now() + 60000;
+            showAlert('Ant Swarm! Slime efficiency halved for 60s!', 'error');
+            break;
+        case 'gum':
+            snail.upgradesDisabledUntil = performance.now() + 20000;
+            showAlert('Sticky Gum! Upgrades disabled for 20s!', 'error');
+            break;
+        case 'shadow':
+            snail.speed *= 0.5;
+            snail.shadowSlowRestoreAt = performance.now() + 40000;
+            showAlert('Shadow Hand! Speed halved for 40s!', 'error');
+            break;
+        case 'wind':
+            snail.distance = Math.max(0, snail.distance - 200);
+            showAlert('Wind Gust! Pushed back 200m!', 'error');
+            clearHazardEffect();
+            break;
+        case 'oil':
+            const move = Math.random() > 0.5 ? 100 : -100;
+            snail.distance = Math.max(0, snail.distance + move);
+            showAlert(`Oil Spill! Swerved ${move > 0 ? '+' : ''}${move}m!`, 'info');
+            clearHazardEffect();
+            break;
+        case 'laser':
+            snail.turboDisabledUntil = performance.now() + 15000;
+            showAlert('Laser Fence! Turbo disabled for 15s!', 'error');
+            break;
+    }
+}
+
+function clearHazardEffect() {
+    activeHazardEffect = null;
 }
 
 // --- Game Loop ---
@@ -397,6 +520,18 @@ function prestige() {
             showAlert(`Mutation unlocked: ${mut.name}!`, 'success');
             mutUnlocked = true;
         }
+        // Guarantee pet unlock after prestige
+        const lockedPets = petDefs.filter(p => !(snail.unlockedPets && snail.unlockedPets.includes(p.id)));
+        let petUnlocked = false;
+        if (lockedPets.length > 0) {
+            const pet = lockedPets[Math.floor(Math.random() * lockedPets.length)];
+            if (!snail.unlockedPets) snail.unlockedPets = [];
+            snail.unlockedPets.push(pet.id);
+            snail.pet = pet.id; // auto-equip new pet
+            snail.petLevel = 1;
+            showAlert(`Pet unlocked: ${pet.name}!`, 'success');
+            petUnlocked = true;
+        }
         // Count prestige for challenges
         let changed = false;
         snail.dailyChallenges.forEach((ch, i) => {
@@ -439,6 +574,13 @@ function showAlert(message, type = 'info') {
 }
 
 function updateSnail(dt) {
+    updatePetLevel();
+    applyPetEffects();
+    // --- Fix: Restore movement after movementDisabledUntil ---
+    if (snail.movementDisabledUntil && performance.now() > snail.movementDisabledUntil) {
+        snail.isMoving = true;
+        snail.movementDisabledUntil = null;
+    }
     if (snail.isMoving) {
         let speed = snail.speed;
         if (snail.turboActive) speed *= 2;
@@ -459,8 +601,14 @@ function updateSnail(dt) {
                     break;
             }
         }
-        snail.distance += speed * snail.slimeEfficiency * (dt / 1000);
-        snail.slimePoints += speed * snail.slimeEfficiency * (dt / 1000);
+        // Apply pet speed multiplier
+        speed *= snail.speedMultiplier || 1;
+        let efficiency = snail.slimeEfficiency;
+        let slimeGain = speed * efficiency * (dt / 1000);
+        // Apply pet slime gain multiplier
+        slimeGain *= snail.slimeGainMultiplier || 1;
+        snail.distance += speed * efficiency * (dt / 1000);
+        snail.slimePoints += slimeGain;
     }
 
     // --- Hazard Timer Logic ---
@@ -630,299 +778,85 @@ function updateSnail(dt) {
     }
 }
 
-function spawnHazard() {
-    const type = hazardTypes[Math.floor(Math.random()*hazardTypes.length)];
-    const duration = 12000 + Math.random()*6000; // 12-18 seconds
-    const hazardObj = {
-        type: type.type,
-        name: type.name,
-        color: type.color,
-        effect: type.effect,
-        x: snail.distance + 300 + Math.random()*200,
-        active: true,
-        created: performance.now(),
-        duration: duration
-    };
-    hazards.push(hazardObj);
-    showAlert(`${type.name} spawned!`, 'info');
-}
+// --- Pet Definitions ---
+const petDefs = [
+    { id: 'blue', name: 'Blue Slime', desc: 'Doubles slime gain. +2% per pet level.', asset: 'assets/blue/slime_idle.png' },
+    { id: 'gray', name: 'Gray Slime', desc: 'Hazard immunity for 5s after spawn. +0.1s per pet level.', asset: 'assets/gray/slime_idle.png' },
+    { id: 'green', name: 'Green Slime', desc: 'Speed +50%. +1% per pet level.', asset: 'assets/green/slime_idle.png' },
+    { id: 'pink', name: 'Pink Slime', desc: 'Turbo lasts 50% longer. +1% per pet level.', asset: 'assets/pink/slime_idle.png' },
+    { id: 'red', name: 'Red Slime', desc: 'Hazard effects reduced by 60%. +0.5% per pet level.', asset: 'assets/red/slime_idle.png' }
+];
 
-function spawnBossHazard() {
-    const bossType = bossHazardTypes[Math.floor(Math.random() * bossHazardTypes.length)];
-    currentBossHazard = {
-        type: bossType.type,
-        name: bossType.name,
-        color: bossType.color,
-        effect: bossType.effect,
-        desc: bossType.desc,
-        created: performance.now(),
-        duration: 20000, // Boss hazards last 20s by default
-        endTime: performance.now() + 20000
-    };
-    bossHazardActive = true;
-    showAlert(`BOSS HAZARD: ${bossType.name}!\n${bossType.desc}`, 'error');
-}
-
-// --- Hazard Effect State ---
-let activeHazardEffect = null; // { type, name, effect, endTime, ... }
-
-// --- Hazard Effect Application ---
-function applyHazardEffect(hazard) {
-    // Start effect and set endTime
-    activeHazardEffect = {
-        type: hazard.type,
-        name: hazard.name,
-        effect: hazard.effect,
-        endTime: performance.now() + hazard.duration
-    };
-    switch(hazard.type) {
-        case 'salt':
-            snail.speed *= 0.5;
-            snail.speedShellDisabledUntil = performance.now() + 30000;
-            showAlert('Salt Patch! Speed halved, Speed Shell disabled for 30s!', 'error');
-            break;
-        case 'bird':
-            snail.isMoving = false;
-            snail.slimePoints = Math.floor(snail.slimePoints * 0.9);
-            snail.movementDisabledUntil = performance.now() + 10000;
-            showAlert('Bird Attack! Lost 10% slime, stopped for 10s!', 'error');
-            break;
-        case 'puddle':
-            snail.distance += 120;
-            showAlert('Puddle! Slid forward 120m!', 'info');
-            clearHazardEffect();
-            break;
-        case 'pebble':
-            snail.isMoving = false;
-            snail.movementDisabledUntil = performance.now() + 8000;
-            showAlert('Pebble! Blocked for 8s!', 'error');
-            break;
-        case 'ants':
-            snail.slimeEfficiency *= 0.5;
-            snail.efficiencyRestoreAt = performance.now() + 60000;
-            showAlert('Ant Swarm! Slime efficiency halved for 60s!', 'error');
-            break;
-        case 'gum':
-            snail.upgradesDisabledUntil = performance.now() + 20000;
-            showAlert('Sticky Gum! Upgrades disabled for 20s!', 'error');
-            break;
-        case 'shadow':
-            snail.speed *= 0.5;
-            snail.shadowSlowRestoreAt = performance.now() + 40000;
-            showAlert('Shadow Hand! Speed halved for 40s!', 'error');
-            break;
-        case 'wind':
-            snail.distance = Math.max(0, snail.distance - 200);
-            showAlert('Wind Gust! Pushed back 200m!', 'error');
-            clearHazardEffect();
-            break;
-        case 'oil':
-            const move = Math.random() > 0.5 ? 100 : -100;
-            snail.distance = Math.max(0, snail.distance + move);
-            showAlert(`Oil Spill! Swerved ${move > 0 ? '+' : ''}${move}m!`, 'info');
-            clearHazardEffect();
-            break;
-        case 'laser':
-            snail.turboDisabledUntil = performance.now() + 15000;
-            showAlert('Laser Fence! Turbo disabled for 15s!', 'error');
-            break;
-    }
-}
-
-function clearHazardEffect() {
-    activeHazardEffect = null;
-}
-
-// --- Timed restoration for hazard effects ---
-function updateSnail(dt) {
-    if (snail.isMoving) {
-        let speed = snail.speed;
-        if (snail.turboActive) speed *= 2;
-        // Apply hazard effect modifiers
-        if (activeHazardEffect) {
-            switch (activeHazardEffect.type) {
-                case 'salt':
-                    speed *= 0.5;
-                    break;
-                case 'ants':
-                    speed *= 0.7;
-                    break;
-                case 'shadow':
-                    speed *= 0.6;
-                    break;
-                case 'spikedShell': // mutation example
-                    speed *= 0.9;
-                    break;
-            }
-        }
-        snail.distance += speed * snail.slimeEfficiency * (dt / 1000);
-        snail.slimePoints += speed * snail.slimeEfficiency * (dt / 1000);
-    }
-
-    // --- Hazard Timer Logic ---
-    if (!window.lastHazardTime) window.lastHazardTime = performance.now();
-    let elapsed = (performance.now() - window.lastHazardTime) / 1000;
-    hazardTimer = Math.max(0, hazardInterval - elapsed);
-
-    // Only spawn hazard if timer reaches zero and no effect is currently active
-    if (
-        hazardTimer <= 0 &&
-        !activeHazardEffect &&
-        !bossHazardActive
-    ) {
-        hazardCount++;
-        if (hazardCount % 5 === 0) {
-            spawnBossHazard();
-        } else {
-            spawnHazard();
-        }
-        window.lastHazardTime = performance.now();
-        hazardInterval = getRandomHazardInterval();
-        hazardTimer = hazardInterval;
-    }
-
-    // Boss hazard effect timer
-    if (bossHazardActive && currentBossHazard) {
-        if (!currentBossHazard.endTime) {
-            currentBossHazard.endTime = performance.now() + currentBossHazard.duration;
-        }
-        if (performance.now() > currentBossHazard.endTime) {
-            bossHazardActive = false;
-            currentBossHazard = null;
-        }
-    }
-
-    if (snail.turboActive) {
-        snail.turboTimer -= dt;
-        if (snail.turboTimer <= 0) {
-            snail.turboActive = false;
-        }
-    }
-
-    // Check for hazard collisions/effects
-    hazards.forEach(hazard => {
-        if (!hazard.active) return;
-        if (Math.abs(snail.distance - hazard.x) < 50 && !activeHazardEffect) {
-            applyHazardEffect(hazard);
-            hazard.active = false;
-        }
+// --- Pet Book logic ---
+window.showPetBook = function() {
+    const petBookMenu = document.getElementById('pet-book-menu');
+    const petBookList = document.getElementById('pet-book-list');
+    petBookMenu.style.display = 'block';
+    petBookList.innerHTML = '';
+    petDefs.forEach((pet, i) => {
+        const unlocked = snail.unlockedPets && snail.unlockedPets.includes(pet.id);
+        const div = document.createElement('div');
+        div.className = unlocked ? 'pet-unlocked' : 'pet-locked';
+        div.style = 'margin-bottom:0;padding:8px 8px;border-radius:8px;min-width:0;word-break:break-word;font-size:13px;cursor:pointer;';
+        div.title = pet.desc;
+        div.innerHTML = `<b style='color:#00e6ff;'>${pet.name}</b><br><span style='font-size:12px;color:#ccc;'>${pet.desc}</span><br><span style='font-size:11px;color:${unlocked ? "#00e676" : "#ff4444"};'>${unlocked ? "Unlocked" : "Locked"}</span>`;
+        div.onmouseenter = function() { div.style.background = "rgba(255,255,255,0.08)"; };
+        div.onmouseleave = function() { div.style.background = ""; };
+        div.onclick = function() { showAlert(div.title, 'info'); };
+        petBookList.appendChild(div);
     });
+};
 
-    // Handle hazard effect timer
-    if (activeHazardEffect && performance.now() > activeHazardEffect.endTime) {
-        clearHazardEffect();
+// --- Pet Sprite Loading ---
+const petSprites = {};
+petDefs.forEach(pet => {
+    const img = new Image();
+    img.src = pet.asset;
+    petSprites[pet.id] = img;
+});
+
+// --- Pet Leveling ---
+function updatePetLevel() {
+    if (snail.pet && snail.unlockedPets.includes(snail.pet)) {
+        const newLevel = Math.min(60, Math.floor(snail.distance / 20000) + 1);
+        if (newLevel > snail.petLevel) {
+            snail.petLevel = newLevel;
+            showAlert(`Your pet leveled up! Lv ${snail.petLevel}`, 'success');
+            saveGame();
+        }
     }
+}
 
-    // Checkpoint logic
-    snail.checkpoint = Math.floor(snail.distance / checkpointDistance);
-    // Level logic
-    snail.level = Math.floor(snail.distance / 1000) + 1;
-
-    // Challenge progress (live update)
-    let changed = false;
-    // Daily
-    snail.dailyChallenges.forEach((ch, i) => {
-        if (snail.dailyComplete[i]) return;
-        switch (ch.id) {
-            case 'collectSlimeDaily':
-                if (snail.slimePoints > snail.dailyProgress[i]) {
-                    snail.dailyProgress[i] = Math.min(snail.slimePoints, ch.goal);
-                    if (snail.dailyProgress[i] >= ch.goal) {
-                        snail.dailyComplete[i] = true;
-                        snail.slimePoints += 5000;
-                        showAlert('Daily challenge complete! +5000 slime', 'success');
-                    }
-                    changed = true;
-                }
-                break;
-            case 'reachDistanceDaily':
-                if (snail.distance > snail.dailyProgress[i]) {
-                    snail.dailyProgress[i] = Math.min(snail.distance, ch.goal);
-                    if (snail.dailyProgress[i] >= ch.goal) {
-                        snail.dailyComplete[i] = true;
-                        snail.slimePoints += 5000;
-                        showAlert('Daily challenge complete! +5000 slime', 'success');
-                    }
-                    changed = true;
-                }
-                break;
-            case 'prestigeDaily':
-                if (snail.prestige > snail.dailyProgress[i]) {
-                    snail.dailyProgress[i] = Math.min(snail.prestige, ch.goal);
-                    if (snail.dailyProgress[i] >= ch.goal) {
-                        snail.dailyComplete[i] = true;
-                        snail.slimePoints += 5000;
-                        showAlert('Daily challenge complete! +5000 slime', 'success');
-                    }
-                    changed = true;
-                }
-                break;
-            case 'unlockMutationDaily':
-                if (snail.unlockedMutations.length > snail.dailyProgress[i]) {
-                    snail.dailyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
-                    if (snail.dailyProgress[i] >= ch.goal) {
-                        snail.dailyComplete[i] = true;
-                        snail.slimePoints += 5000;
-                        showAlert('Daily challenge complete! +5000 slime', 'success');
-                    }
-                    changed = true;
-                }
-                break;
-        }
-    });
-    // Weekly
-    snail.weeklyChallenges.forEach((ch, i) => {
-        if (snail.weeklyComplete[i]) return;
-        switch (ch.id) {
-            case 'collectSlimeWeekly':
-                if (snail.slimePoints > snail.weeklyProgress[i]) {
-                    snail.weeklyProgress[i] = Math.min(snail.slimePoints, ch.goal);
-                    if (snail.weeklyProgress[i] >= ch.goal) {
-                        snail.weeklyComplete[i] = true;
-                        snail.slimePoints += 25000;
-                        showAlert('Weekly challenge complete! +25000 slime', 'success');
-                    }
-                    changed = true;
-                }
-                break;
-            case 'reachDistanceWeekly':
-                if (snail.distance > snail.weeklyProgress[i]) {
-                    snail.weeklyProgress[i] = Math.min(snail.distance, ch.goal);
-                    if (snail.weeklyProgress[i] >= ch.goal) {
-                        snail.weeklyComplete[i] = true;
-                        snail.slimePoints += 25000;
-                        showAlert('Weekly challenge complete! +25000 slime', 'success');
-                    }
-                    changed = true;
-                }
-                break;
-            case 'prestigeWeekly':
-                if (snail.prestige > snail.weeklyProgress[i]) {
-                    snail.weeklyProgress[i] = Math.min(snail.prestige, ch.goal);
-                    if (snail.weeklyProgress[i] >= ch.goal) {
-                        snail.weeklyComplete[i] = true;
-                        snail.slimePoints += 25000;
-                        showAlert('Weekly challenge complete! +25000 slime', 'success');
-                    }
-                    changed = true;
-                }
-                break;
-            case 'unlockMutationWeekly':
-                if (snail.unlockedMutations.length > snail.weeklyProgress[i]) {
-                    snail.weeklyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
-                    if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
-                    changed = true;
-                }
-                break;
-        }
-    });
-    if (changed) saveGame();
-    // Remove expired hazards
-    hazards = hazards.filter(h => h.active !== false);
-
-    // Remove currentHazard if effect is over
-    if (currentHazard && performance.now() - currentHazard.created > currentHazard.duration) {
-        currentHazard = null;
+// --- Apply Pet Effects ---
+function applyPetEffects() {
+    // Reset all multipliers before applying
+    snail.slimeGainMultiplier = 1;
+    snail.speedMultiplier = 1;
+    snail.turboDurationMultiplier = 1;
+    snail.hazardImmunityDuration = 0;
+    snail.hazardReduction = 0;
+    if (!snail.pet || !snail.unlockedPets.includes(snail.pet)) return;
+    const pet = petDefs.find(p => p.id === snail.pet);
+    const lvl = snail.petLevel || 1;
+    switch (pet.id) {
+        case 'blue':
+            snail.slimeGainMultiplier = 2 + 0.02 * lvl;
+            break;
+        case 'gray':
+            snail.hazardImmunityDuration = 5000 + 100 * lvl;
+            break;
+        case 'green':
+            snail.speedMultiplier = 1.5 + 0.01 * lvl;
+            break;
+        case 'pink':
+            snail.turboDurationMultiplier = 1.5 + 0.01 * lvl;
+            break;
+        case 'red':
+            snail.hazardReduction = 0.6 + 0.005 * lvl;
+            break;
+        default:
+            // No effect
+            break;
     }
 }
 
@@ -1100,6 +1034,9 @@ function saveGame() {
     saveData.weeklyComplete = snail.weeklyComplete;
     saveData.dailyReset = snail.dailyReset;
     saveData.weeklyReset = snail.weeklyReset;
+    saveData.pet = snail.pet;
+    saveData.petLevel = snail.petLevel;
+    saveData.unlockedPets = Array.isArray(snail.unlockedPets) ? snail.unlockedPets : [];
     // Save best distance if higher
     database.ref('users/' + username).once('value').then(snapshot => {
         const prev = snapshot.val();
@@ -1154,6 +1091,9 @@ function loadGame() {
                     }
                 });
             }
+            snail.pet = loaded.pet || null;
+            snail.petLevel = Number(loaded.petLevel) || 1;
+            snail.unlockedPets = Array.isArray(loaded.unlockedPets) ? loaded.unlockedPets : [];
         }
     });
 }
@@ -1171,6 +1111,23 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!snail.weeklyChallenges.length || now > snail.weeklyReset) resetWeeklyChallenges();
     // Do not call updateLeaderboard here, only refresh on timer
     // Restore upgrade button click handlers
+    upgradeDefs.forEach(upg => {
+        const btn = document.getElementById(upg.id);
+        btn.onclick = () => {
+            if (snail.slimePoints >= upg.cost) {
+                snail.slimePoints -= upg.cost;
+                upg.purchased = (upg.purchased || 0) + 1;
+                upg.action();
+                // Exponential scaling for all upgrades
+                upg.cost = Math.floor(upg.baseCost * Math.pow(1.25, upg.purchased));
+                updateUI();
+                showAlert(`Upgraded: ${upg.name}!`, 'success');
+                saveGame(); // Save immediately after upgrade
+            } else {
+                showAlert('Not enough slime!', 'error');
+            }
+        };
+    });
     // Hazard Book logic
     const hazardBookBtn = document.getElementById('open-hazard-book');
     const hazardBookMenu = document.getElementById('hazard-book-menu');
@@ -1204,41 +1161,6 @@ window.addEventListener('DOMContentLoaded', () => {
         hazardBookMenu.style.display = 'none';
     };
     });
-
-    function getHazardDescription(type) {
-        switch(type) {
-            case 'salt': return 'Halves speed and disables Speed Shell for 30s.';
-            case 'bird': return 'Steals 10% slime and disables movement for 10s.';
-            case 'puddle': return 'Slides forward 120m.';
-            case 'pebble': return 'Blocks movement for 8s.';
-            case 'ants': return 'Halves slime efficiency for 60s.';
-            case 'gum': return 'Disables upgrades for 20s.';
-            case 'shadow': return 'Halves speed for 40s.';
-            case 'wind': return 'Pushes back 200m.';
-            case 'oil': return 'Randomly moves -100m or +100m.';
-            case 'laser': return 'Disables turbo for 15s.';
-            default: return '';
-        }
-    }
-    upgradeDefs.forEach(upg => {
-        const btn = document.getElementById(upg.id);
-        btn.onclick = () => {
-            if (snail.slimePoints >= upg.cost) {
-                snail.slimePoints -= upg.cost;
-                upg.purchased = (upg.purchased || 0) + 1;
-                upg.action();
-                // Exponential scaling for all upgrades
-                upg.cost = Math.floor(upg.baseCost * Math.pow(1.25, upg.purchased));
-                updateUI();
-                showAlert(`Upgraded: ${upg.name}!`, 'success');
-                saveGame(); // Save immediately after upgrade
-            } else {
-                showAlert('Not enough slime!', 'error');
-            }
-        };
-    });
-    // Remove duplicate hazard timer creation (now in HTML)
-// Removed extra closing bracket to fix syntax error
 
 requestAnimationFrame(gameLoop);
 
@@ -1470,4 +1392,24 @@ function drawGame() {
         spriteW * 2,
         spriteH * 2
     );
+
+    // Draw pet sprite next to snail
+    if (snail.pet && petSprites[snail.pet]) {
+        // Use frame for animation (4 frames, 128x32)
+        const petImg = petSprites[snail.pet];
+        const petFrame = Math.floor((performance.now()/200)%4);
+        ctx.drawImage(
+            petImg,
+            petFrame * 32, 0, 32, 32,
+            canvas.width/2 + 50, canvas.height/2 - 16,
+            32, 32
+        );
+        // Show pet level above pet
+        ctx.save();
+        ctx.font = 'bold 14px monospace';
+        ctx.fillStyle = '#00e6ff';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Pet Lv${snail.petLevel}`, canvas.width/2 + 66, canvas.height/2 - 24);
+        ctx.restore();
+    }
 }
