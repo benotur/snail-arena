@@ -1741,19 +1741,24 @@ function drawGame() {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
+            // --- Show cooldown/effect timer ---
             if (mutId) {
-                // Draw mutation index
-                const mutIdx = mutationDefs.findIndex(m => m.id === mutId);
-                ctx.fillStyle = '#fff';
-                ctx.fillText(mutIdx+1, startX + idx*spacing, y);
-                // Draw cooldown timer (if any) with swaying white color
                 const state = snail.mutationCooldowns[idx] || {};
-                if (state.cooldown > 0 || state.active > 0) {
-                    const timer = Math.ceil((state.active > 0 ? state.active : state.cooldown) / 1000);
-                    const sway = Math.floor(220 + 20 * Math.sin(performance.now()/200));
-                    ctx.font = 'bold 13px monospace';
-                    ctx.fillStyle = `rgb(${sway},${sway},${sway})`;
-                    ctx.fillText(`${timer}s`, startX + idx*spacing, y + 28);
+                if (state.cooldown > 0) {
+                    // Cooldown: white
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 16px monospace';
+                    ctx.fillText(`${Math.ceil(state.cooldown/1000)}s`, startX + idx*spacing, y);
+                } else if (state.active > 0) {
+                    // Effect active: yellow
+                    ctx.fillStyle = '#ffd700';
+                    ctx.font = 'bold 16px monospace';
+                    ctx.fillText(`${Math.ceil(state.active/1000)}s`, startX + idx*spacing, y);
+                } else {
+                    // No cooldown/effect: show 0
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 16px monospace';
+                    ctx.fillText(`0`, startX + idx*spacing, y);
                 }
             } else {
                 // Draw "+" for empty slot
@@ -1857,23 +1862,22 @@ window.showMutationEquipMenu = function() {
 };
 
 // --- Mutation Cooldown Logic ---
-// Example for radioactiveShell (slot-based)
+// Handles cooldown/active timers for all mutations with timers
 function updateMutationCooldowns(dt) {
     snail.equippedMutations.forEach((mutId, idx) => {
         if (!mutId) return;
-        const mut = mutationDefs.find(m => m.id === mutId);
         const state = snail.mutationCooldowns[idx] || {};
-        // Example: radioactiveShell
+        // --- Radioactive Shell: 90s cooldown, 10s active ---
         if (mutId === 'radioactiveShell') {
             if (!state.cooldown && !state.active) {
-                state.cooldown = 90000; // 90s cooldown
+                state.cooldown = 90000;
                 state.active = 0;
             }
             if (state.cooldown > 0) {
                 state.cooldown -= dt;
                 if (state.cooldown <= 0) {
                     state.cooldown = 0;
-                    state.active = 10000; // 10s active
+                    state.active = 10000;
                     showAlert('Radioactive Shell: Shield active! Immune to hazards for 10s.', 'info');
                 }
             } else if (state.active > 0) {
@@ -1885,7 +1889,145 @@ function updateMutationCooldowns(dt) {
                 }
             }
         }
-        // Add similar logic for other mutations with cooldowns/active durations
+        // --- Magnet Antennae: 60s cooldown, instant effect (show 1s yellow) ---
+        else if (mutId === 'magnetAntennae') {
+            if (!state.cooldown && !state.active) {
+                state.cooldown = 60000;
+                state.active = 0;
+            }
+            if (state.cooldown > 0) {
+                state.cooldown -= dt;
+                if (state.cooldown <= 0) {
+                    state.cooldown = 0;
+                    state.active = 1000;
+                    showAlert('Magnet Antennae: Magnetized slime attracted!', 'info');
+                }
+            } else if (state.active > 0) {
+                state.active -= dt;
+                if (state.active <= 0) {
+                    state.active = 0;
+                    state.cooldown = 60000;
+                }
+            }
+        }
+        // --- Mini Wings: 60s cooldown, instant effect (show 1s yellow) ---
+        else if (mutId === 'miniWings') {
+            if (!state.cooldown && !state.active) {
+                state.cooldown = 60000;
+                state.active = 0;
+            }
+            if (state.cooldown > 0) {
+                state.cooldown -= dt;
+                if (state.cooldown <= 0) {
+                    state.cooldown = 0;
+                    state.active = 1000;
+                    showAlert('Mini Wings: Hazard skipped!', 'info');
+                }
+            } else if (state.active > 0) {
+                state.active -= dt;
+                if (state.active <= 0) {
+                    state.active = 0;
+                    state.cooldown = 60000;
+                }
+            }
+        }
+        // --- Quantum Trail: 90s cooldown, instant effect (show 1s yellow) ---
+        else if (mutId === 'quantumTrail') {
+            if (!state.cooldown && !state.active) {
+                state.cooldown = 90000;
+                state.active = 0;
+            }
+            if (state.cooldown > 0) {
+                state.cooldown -= dt;
+                if (state.cooldown <= 0) {
+                    state.cooldown = 0;
+                    state.active = 1000;
+                    showAlert('Quantum Trail: Teleported forward 300m!', 'info');
+                }
+            } else if (state.active > 0) {
+                state.active -= dt;
+                if (state.active <= 0) {
+                    state.active = 0;
+                    state.cooldown = 90000;
+                }
+            }
+        }
+        // --- Frost Antennae: 60s cooldown, 10s active ---
+        else if (mutId === 'frostAntennae') {
+            if (!state.cooldown && !state.active) {
+                state.cooldown = 60000;
+                state.active = 0;
+            }
+            if (state.cooldown > 0) {
+                state.cooldown -= dt;
+                if (state.cooldown <= 0) {
+                    state.cooldown = 0;
+                    state.active = 10000;
+                    showAlert('Frost Antennae: Hazard frozen for 10s!', 'info');
+                }
+            } else if (state.active > 0) {
+                state.active -= dt;
+                if (state.active <= 0) {
+                    state.active = 0;
+                    state.cooldown = 60000;
+                }
+            }
+        }
+        // --- Electric Pulse: 60s cooldown, 5s active ---
+        else if (mutId === 'electricPulse') {
+            if (!state.cooldown && !state.active) {
+                state.cooldown = 60000;
+                state.active = 0;
+            }
+            if (state.cooldown > 0) {
+                state.cooldown -= dt;
+                if (state.cooldown <= 0) {
+                    state.cooldown = 0;
+                    state.active = 5000;
+                    showAlert('Electric Pulse: Hazards stunned for 5s!', 'info');
+                }
+            } else if (state.active > 0) {
+                state.active -= dt;
+                if (state.active <= 0) {
+                    state.active = 0;
+                    state.cooldown = 60000;
+                }
+            }
+        }
+        // --- Spiked Shell: effect lasts 30s when triggered, no cooldown ---
+        else if (mutId === 'spikedShell') {
+            if (snail.spikedShellSlowTimer > 0) {
+                state.cooldown = 0;
+                state.active = snail.spikedShellSlowTimer;
+            } else {
+                state.cooldown = 0;
+                state.active = 0;
+            }
+        }
+        // --- Shadow Cloak: 5s active after turbo, no cooldown ---
+        else if (mutId === 'shadowCloak') {
+            if (!state.active) state.active = 0;
+            // You may want to trigger this in turbo logic
+            // Here, just keep timer if active
+            if (state.active > 0) {
+                state.active -= dt;
+                if (state.active <= 0) state.active = 0;
+            }
+        }
+        // --- Slime Magnet: 10s active after hazard, no cooldown ---
+        else if (mutId === 'slimeMagnet') {
+            if (!state.active) state.active = 0;
+            // You may want to trigger this in hazard logic
+            if (state.active > 0) {
+                state.active -= dt;
+                if (state.active <= 0) state.active = 0;
+            }
+        }
+        // --- Other mutations: no cooldown/active ---
+        else {
+            state.cooldown = 0;
+            state.active = 0;
+        }
         snail.mutationCooldowns[idx] = state;
     });
 }
