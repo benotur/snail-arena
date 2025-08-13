@@ -351,6 +351,18 @@ function handleInput(e) {
         if (window.showPetSwitchMenu) window.showPetSwitchMenu();
         return;
     }
+
+    // --- Mutation Slot Click Detection (open menu for any slot) ---
+    if (window._mutationSlotCoords) {
+        for (const slot of window._mutationSlotCoords) {
+            const dx = mx - slot.x;
+            const dy = my - slot.y;
+            if (dx*dx + dy*dy <= slot.r*slot.r) {
+                if (window.showMutationEquipMenu) window.showMutationEquipMenu();
+                return;
+            }
+        }
+    }
 }
 
 // --- Global State Fixes ---
@@ -624,7 +636,68 @@ function getCETTimeLeft(targetTimestamp) {
     const now = new Date();
     const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
     const cetOffset = 2;
-    const cetNow = utcNow + cetOffset * 3600000;
+    const msLeft = targetTimestamp - (utcNow + cetOffset * 3600000);
+    if (msLeft <= 0) return "00:00:00";
+    const totalSeconds = Math.floor(msLeft / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (days > 0) {
+        return `${days}d ${hours.toString().padStart(2,"0")}:${minutes.toString().padStart(2,"0")}:${seconds.toString().padStart(2,"0")}`;
+    } else {
+        return `${hours.toString().padStart(2,"0")}:${minutes.toString().padStart(2,"0")}:${seconds.toString().padStart(2,"0")}`;
+    }
+}
+
+// --- Challenge UI Update ---
+function updateChallengeUI(type, challenges, progress, complete) {
+    // type: 'daily' or 'weekly'
+    let containerId = type === 'daily' ? 'dailyChallenge' : 'weeklyChallenge';
+    let container = document.getElementById(containerId);
+    if (!container) return;
+    if (!challenges || !challenges.length) {
+        container.innerHTML = `<span style="color:#aaa;">No ${type} challenges.</span>`;
+        return;
+    }
+    let html = '';
+    // Show cooldown timer above challenge count, gray, no label
+    let timer = '';
+    if (type === 'daily') {
+        timer = getCETTimeLeft(snail.dailyReset);
+        html += `<div style="font-size:13px;color:#888;margin-bottom:2px;">${timer}</div>`;
+        html += `<div style="font-size:12px;color:#ffd700;margin-bottom:4px;">${challenges.length} Daily Challenges</div>`;
+    } else {
+        timer = getCETTimeLeft(snail.weeklyReset);
+        html += `<div style="font-size:13px;color:#888;margin-bottom:2px;">${timer}</div>`;
+        html += `<div style="font-size:12px;color:#ffd700;margin-bottom:4px;">${challenges.length} Weekly Challenges</div>`;
+    }
+    challenges.forEach((ch, i) => {
+        let prog = Math.min(progress[i] || 0, ch.goal);
+        // Limit decimals for slime/distance
+        if (ch.id.includes('Slime')) prog = Number(prog).toFixed(2);
+        if (ch.id.includes('Distance')) prog = Number(prog).toFixed(2);
+        let pct = Math.floor((prog / ch.goal) * 100);
+        let done = complete[i];
+        html += `
+            <div style="margin-bottom:8px;">
+                <span style="color:${done ? '#00e676' : '#ffd700'};font-weight:bold;">${ch.desc}</span><br>
+                <span style="font-size:12px;color:#ccc;">${prog} / ${ch.goal}</span>
+                <div style="height:8px;width:100%;background:#222;border-radius:4px;overflow:hidden;margin-top:2px;">
+                    <div style="height:8px;width:${pct}%;background:${done ? '#00e676' : '#ffd700'};transition:width 0.2s;"></div>
+                </div>
+                ${done ? '<span style="font-size:11px;color:#00e676;">Complete!</span>' : ''}
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function getCETTimeLeft(targetTimestamp) {
+    // CET = UTC+1 or UTC+2 (summer), but for simplicity, use UTC+2 as in original code
+    const now = new Date();
+    const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const cetOffset = 2;
     const msLeft = targetTimestamp - (utcNow + cetOffset * 3600000);
     if (msLeft <= 0) return "00:00:00";
     const totalSeconds = Math.floor(msLeft / 1000);
@@ -973,6 +1046,13 @@ function updateSnail(dt) {
                         snail.slimePoints += 25000;
                         showAlert('Weekly challenge complete! +25000 slime', 'success');
                     }
+                    changed = true;
+                }
+                break;
+            case 'unlockMutationWeekly':
+                if (snail.unlockedMutations.length > snail.weeklyProgress[i]) {
+                    snail.weeklyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
+                    if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
                     changed = true;
                 }
                 break;
@@ -1393,7 +1473,7 @@ function drawGame() {
                     ctx.lineTo(-6,-8);
                     ctx.lineTo(0,-22);
                     ctx.lineTo(6,-8);
-                    ctx.lineTo(12,-18);
+                                       ctx.lineTo(12,-18);
                     ctx.closePath();
                     ctx.fillStyle = '#333';
                     ctx.fill();
@@ -1641,33 +1721,45 @@ function drawGame() {
         const spacing = 55;
         const startX = canvas.width/2 - ((eq.length-1)/2)*spacing;
         eq.forEach((mutId, idx) => {
-            const mutIdx = mutationDefs.findIndex(m => m.id === mutId);
-            // Make circles darker
-            const color = "#222"; // dark gray
             ctx.save();
             ctx.beginPath();
             ctx.arc(startX + idx*spacing, y, 22, 0, 2*Math.PI);
-            ctx.fillStyle = color;
+            // --- Color circle based on equipped mutation ---
+            let fillColor = "#222";
+            if (mutId) {
+                const mutIdx = mutationDefs.findIndex(m => m.id === mutId);
+                fillColor = mutationColors[mutIdx % mutationColors.length];
+            }
+            ctx.fillStyle = fillColor;
             ctx.globalAlpha = 0.92;
             ctx.fill();
             ctx.lineWidth = 4;
             ctx.strokeStyle = '#111';
             ctx.stroke();
-            // Draw mutation index
+
             ctx.font = 'bold 18px monospace';
-            ctx.fillStyle = '#fff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(mutIdx+1, startX + idx*spacing, y);
-            // Draw cooldown timer (if any) with swaying white color
-            const state = snail.mutationCooldowns[idx] || {};
-            if (state.cooldown > 0 || state.active > 0) {
-                const timer = Math.ceil((state.active > 0 ? state.active : state.cooldown) / 1000);
-                // Swaying white color
-                const sway = Math.floor(220 + 20 * Math.sin(performance.now()/200));
-                ctx.font = 'bold 13px monospace';
-                ctx.fillStyle = `rgb(${sway},${sway},${sway})`;
-                ctx.fillText(`${timer}s`, startX + idx*spacing, y + 28);
+
+            if (mutId) {
+                // Draw mutation index
+                const mutIdx = mutationDefs.findIndex(m => m.id === mutId);
+                ctx.fillStyle = '#fff';
+                ctx.fillText(mutIdx+1, startX + idx*spacing, y);
+                // Draw cooldown timer (if any) with swaying white color
+                const state = snail.mutationCooldowns[idx] || {};
+                if (state.cooldown > 0 || state.active > 0) {
+                    const timer = Math.ceil((state.active > 0 ? state.active : state.cooldown) / 1000);
+                    const sway = Math.floor(220 + 20 * Math.sin(performance.now()/200));
+                    ctx.font = 'bold 13px monospace';
+                    ctx.fillStyle = `rgb(${sway},${sway},${sway})`;
+                    ctx.fillText(`${timer}s`, startX + idx*spacing, y + 28);
+                }
+            } else {
+                // Draw "+" for empty slot
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 22px monospace';
+                ctx.fillText("+", startX + idx*spacing, y);
             }
             ctx.restore();
         });
@@ -1675,7 +1767,8 @@ function drawGame() {
         window._mutationSlotCoords = eq.map((mutId, idx) => ({
             x: startX + idx*spacing,
             y: y,
-            r: 24
+            r: 24,
+            empty: !mutId
         }));
     }
 }
@@ -1693,7 +1786,7 @@ snail.equippedMutations = [null, null, null]; // 3 slots, null if not equipped
 if (!snail.mutationCooldowns) snail.mutationCooldowns = [{}, {}, {}]; // {cooldown: ms, active: ms}
 
 // --- Mutation Equip Menu ---
-window.showMutationEquipMenu = function(slotIdx = null) {
+window.showMutationEquipMenu = function() {
     let menu = document.getElementById('mutation-equip-menu');
     if (!menu) {
         menu = document.createElement('div');
@@ -1702,36 +1795,46 @@ window.showMutationEquipMenu = function(slotIdx = null) {
             position:fixed;left:50%;top:56%;transform:translate(-50%,0);
             z-index:400;background:rgba(20,20,20,0.98);border-radius:18px;
             padding:18px 24px;box-shadow:0 4px 24px #000;min-width:220px;
-            max-width:340px;max-height:60vh;overflow-y:auto;text-align:center;
+            max-width:340px;max-height:40vh;overflow-y:auto;text-align:center;
         `;
         document.body.appendChild(menu);
     }
-    menu.innerHTML = `<div style="font-size:20px;font-weight:bold;color:#ffd700;margin-bottom:12px;">Equip Mutation</div>`;
-    menu.innerHTML += `<div id="mutation-equip-list" style="display:flex;justify-content:center;gap:18px;margin-bottom:14px;"></div>`;
+    // Ensure scrollable and fits to screen
+    menu.style.maxHeight = '40vh';
+    menu.style.overflowY = 'auto';
+    menu.style.width = 'auto';
+    menu.style.maxWidth = '340px';
+    menu.style.minWidth = '220px';
+    menu.style.boxSizing = 'border-box';
+    menu.innerHTML = `<div style="font-size:20px;font-weight:bold;color:#ffd700;margin-bottom:12px;">Switch Mutation</div>`;
+    menu.innerHTML += `<div id="mutation-equip-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;"></div>`;
     const list = menu.querySelector('#mutation-equip-list');
     mutationDefs.forEach((mut, i) => {
         if (!snail.unlockedMutations.includes(mut.id)) return;
-        const color = mutationColors[i % mutationColors.length];
         const equippedIdx = snail.equippedMutations.indexOf(mut.id);
         const div = document.createElement('div');
         div.style = `
-            width:48px;height:48px;border-radius:50%;background:${color};
-            display:flex;align-items:center;justify-content:center;cursor:pointer;
-            box-shadow:0 2px 8px #000;position:relative;border:${equippedIdx !== -1 ? '3px solid #ffd700' : '2px solid #222'};
-            transition:border 0.2s;
+            padding:8px 8px;border-radius:8px;min-width:0;word-break:break-word;
+            font-size:13px;cursor:pointer;text-align:left;background:${equippedIdx !== -1 ? '#222' : ''};
+            border:1px solid #333;margin-bottom:2px;
         `;
-        div.title = mut.name;
-        div.innerHTML = `<span style="color:#fff;font-size:18px;font-weight:bold;">${i+1}</span>`;
-        if (equippedIdx !== -1) {
-            div.innerHTML += `<span style="position:absolute;bottom:2px;right:6px;font-size:12px;color:#ffd700;">✔</span>`;
-        }
+        div.innerHTML = `<b style='color:${mutationColors[i % mutationColors.length]};'>${mut.name}</b><br>
+            <span style='font-size:12px;color:#ccc;'>${mut.desc}</span>
+            ${equippedIdx !== -1 ? "<br><span style='color:#00e676;'>Equipped</span>" : ""}`;
         div.onclick = function() {
             if (equippedIdx !== -1) {
                 snail.equippedMutations[equippedIdx] = null;
                 snail.mutationCooldowns[equippedIdx] = {};
-            } else if (slotIdx !== null) {
-                snail.equippedMutations[slotIdx] = mut.id;
-                snail.mutationCooldowns[slotIdx] = {};
+            } else {
+                // Equip to first available slot
+                const slot = snail.equippedMutations.findIndex(x => !x);
+                if (slot !== -1) {
+                    snail.equippedMutations[slot] = mut.id;
+                    snail.mutationCooldowns[slot] = {};
+                } else {
+                    showAlert('All mutation slots are full!', 'error');
+                    return;
+                }
             }
             menu.style.display = 'none';
             updateUI();
@@ -1739,33 +1842,19 @@ window.showMutationEquipMenu = function(slotIdx = null) {
         };
         list.appendChild(div);
     });
-    menu.innerHTML += `<button id="close-mutation-equip-menu" style="margin-top:18px;padding:7px 18px;border-radius:8px;background:#222;color:#ffd700;font-size:15px;border:none;cursor:pointer;">Close</button>`;
-    menu.querySelector('#close-mutation-equip-menu').onclick = function() {
-        menu.style.display = 'none';
-    };
+    // Always add close button
+    if (!menu.querySelector('#close-mutation-equip-menu')) {
+        const closeBtn = document.createElement('button');
+        closeBtn.id = 'close-mutation-equip-menu';
+        closeBtn.style = "margin-top:18px;padding:7px 18px;border-radius:8px;background:#222;color:#ffd700;font-size:15px;border:none;cursor:pointer;";
+        closeBtn.innerText = "Close";
+        closeBtn.onclick = function() {
+            menu.style.display = 'none';
+        };
+        menu.appendChild(closeBtn);
+    }
     menu.style.display = 'block';
 };
-
-// --- Add button to open equip menu (optional, can remove if only using "+" on circles) ---
-window.addEventListener('DOMContentLoaded', function() {
-    // ...existing code...
-    let equipBtn = document.getElementById('open-mutation-equip');
-    if (!equipBtn) {
-        equipBtn = document.createElement('button');
-        equipBtn.id = 'open-mutation-equip';
-        equipBtn.innerText = '⚡ Equip Mutations';
-        equipBtn.style = `
-            position:fixed;left:50%;top:68%;transform:translate(-50%,0); /* was 64% */
-            z-index:399;padding:8px 18px;border-radius:18px;background:#222;
-            color:#ffd700;font-size:16px;border:none;cursor:pointer;box-shadow:0 2px 8px #000;
-        `;
-        document.body.appendChild(equipBtn);
-    }
-    equipBtn.onclick = function() {
-        window.showMutationEquipMenu();
-    };
-    // ...existing code...
-});
 
 // --- Mutation Cooldown Logic ---
 // Example for radioactiveShell (slot-based)
@@ -2036,6 +2125,13 @@ function updateSnail(dt) {
                         snail.slimePoints += 25000;
                         showAlert('Weekly challenge complete! +25000 slime', 'success');
                     }
+                    changed = true;
+                }
+                break;
+            case 'unlockMutationWeekly':
+                if (snail.unlockedMutations.length > snail.weeklyProgress[i]) {
+                    snail.weeklyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
+                    if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
                     changed = true;
                 }
                 break;
