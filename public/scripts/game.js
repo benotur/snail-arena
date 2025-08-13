@@ -104,26 +104,26 @@ let username = '';
 // --- Hazards ---
 // --- Mutations ---
 const mutationDefs = [
-    { id: 'radioactiveShell', name: 'Radioactive Shell', desc: 'Immune to the first hazard per run. (No effect from first hazard)' },
-    { id: 'regenerativeSlime', name: 'Regenerative Slime', desc: 'Restores 1000 slime after each hazard.' },
-    { id: 'magnetAntennae', name: 'Magnet Antennae', desc: 'Slime pickups radius +50%.' },
+    { id: 'radioactiveShell', name: 'Radioactive Shell', desc: 'Every 90s, gain a shield for 10s that blocks all hazards. (Shield animation above snail)' },
+    { id: 'regenerativeSlime', name: 'Regenerative Slime', desc: 'Gain 2500 slime every time you hit a hazard.' },
+    { id: 'magnetAntennae', name: 'Magnet Antennae', desc: 'Every 60s, attract 1000-3000 slime. (Magnet animation around snail)' },
     { id: 'camouflageSkin', name: 'Camouflage Skin', desc: '30% chance to avoid hazard effects.' },
     { id: 'turboGlands', name: 'Turbo Glands', desc: 'Turbo lasts 20% longer.' },
-    { id: 'spikedShell', name: 'Spiked Shell', desc: 'Destroys hazards on contact, speed -10%.' },
-    { id: 'doubleEyes', name: 'Double Eyes', desc: 'See hazards 5s before they spawn.' },
+    { id: 'spikedShell', name: 'Spiked Shell', desc: 'Hazards are destroyed on contact (immune), but speed is reduced by 10% for 30s. (Spikes animation)' },
+    { id: 'doubleEyes', name: 'Double Eyes', desc: 'Warns you 5s before a hazard spawns. (Eyes animation)' },
     { id: 'stickyFoot', name: 'Sticky Foot', desc: 'Immune to Puddle and Gum hazards.' },
-    { id: 'miniWings', name: 'Mini Wings', desc: 'Skip 1 hazard every 60s.' },
-    { id: 'quantumTrail', name: 'Quantum Trail', desc: 'Teleport forward 300m every 90s.' },
-    { id: 'crystalShell', name: 'Crystal Shell', desc: '+2000 slime at each checkpoint.' },
-    { id: 'fireSlime', name: 'Fire Slime', desc: 'Destroys Gum instantly.' },
-    { id: 'frostAntennae', name: 'Frost Antennae', desc: 'Hazards near snail move 40% slower.' },
-    { id: 'electricPulse', name: 'Electric Pulse', desc: 'Stuns hazards for 5s.' },
-    { id: 'luckyCharm', name: 'Lucky Charm', desc: 'Rare hazards drop double rewards.' },
+    { id: 'miniWings', name: 'Mini Wings', desc: 'Every 60s, skip a hazard spawn. (Alert shown)' },
+    { id: 'quantumTrail', name: 'Quantum Trail', desc: 'Every 90s, teleport forward 300m. (Trail animation)' },
+    { id: 'crystalShell', name: 'Crystal Shell', desc: '+2000 slime at each checkpoint (scenery change). (Crystal animation)' },
+    { id: 'fireSlime', name: 'Fire Slime', desc: 'Gum hazard is destroyed on contact. (Flame animation)' },
+    { id: 'frostAntennae', name: 'Frost Antennae', desc: 'Every 60s, freeze a hazard for 10s. (Frost animation)' },
+    { id: 'electricPulse', name: 'Electric Pulse', desc: 'Every 60s, stun all hazards for 5s. (Electric animation)' },
+    { id: 'luckyCharm', name: 'Lucky Charm', desc: '20% chance to stop rare hazard spawn, double slime from rare hazards. (Sparkle animation)' },
     { id: 'ironShell', name: 'Iron Shell', desc: 'Hazard effects reduced by 30%.' },
-    { id: 'slimeMagnet', name: 'Slime Magnet', desc: 'Double slime pickup for 10s after hazard.' },
-    { id: 'shadowCloak', name: 'Shadow Cloak', desc: 'Immune to hazards for 5s after turbo.' },
-    { id: 'bouncyFoot', name: 'Bouncy Foot', desc: 'Hazards bounce off, speed -15%.' },
-    { id: 'timeDilation', name: 'Time Dilation', desc: 'Hazard timer +20% every 2 minutes.' }
+    { id: 'slimeMagnet', name: 'Slime Magnet', desc: 'Double slime gain for 10s after every hazard. (Glow animation)' },
+    { id: 'shadowCloak', name: 'Shadow Cloak', desc: 'Immune to hazards for 5s after turbo is activated. (Shadow animation)' },
+    { id: 'bouncyFoot', name: 'Bouncy Foot', desc: 'Every second hazard bounces off (immune), but speed -15% for 30s when this happens. (Bounce animation)' },
+    { id: 'timeDilation', name: 'Time Dilation', desc: 'Hazards last 20% longer every two minutes. (Bad mutation)' }
 ];
 
 // Mutation Book logic (same as Hazard Book)
@@ -406,6 +406,31 @@ function spawnBossHazard() {
 let activeHazardEffects = []; // Array of {type, name, effect, endTime, ...}
 
 function applyHazardEffect(hazard) {
+    // --- Mutation Checks ---
+    // radioactiveShell: immune if shield active
+    if (snail.unlockedMutations.includes('radioactiveShell') && snail.radioactiveShieldActive) {
+        showAlert('Radioactive Shell: Hazard blocked by shield!', 'success');
+        return;
+    }
+    // camouflageSkin: 30% chance to avoid hazard
+    if (snail.unlockedMutations.includes('camouflageSkin')) {
+        if (Math.random() < 0.3) {
+            showAlert('Camouflage Skin: Hazard avoided!', 'success');
+            return;
+        }
+    }
+    // stickyFoot: immune to puddle/gum
+    if (snail.unlockedMutations.includes('stickyFoot') && (hazard.type === 'puddle' || hazard.type === 'gum')) {
+        showAlert('Sticky Foot: Puddle/Gum hazard ignored!', 'success');
+        return;
+    }
+    // spikedShell: destroy hazard, immune, but slow for 30s
+    if (snail.unlockedMutations.includes('spikedShell')) {
+        showAlert('Spiked Shell: Hazard destroyed! Speed -10% for 30s.', 'info');
+        snail.spikedShellSlowTimer = 30000;
+        return;
+    }
+
     // Duration spec for each hazard
     let duration = 0;
     switch(hazard.type) {
@@ -475,6 +500,12 @@ function applyHazardEffect(hazard) {
         case 'laser':
             snail.turboDisabledUntil = Math.max(snail.turboDisabledUntil || 0, performance.now() + duration);
             break;
+    }
+    // --- Mutation Effects ---
+    // regenerativeSlime: +2500 slime every hazard
+    if (snail.unlockedMutations.includes('regenerativeSlime')) {
+        snail.slimePoints += 2500;
+        showAlert('Regenerative Slime: +2500 slime restored!', 'success');
     }
 }
 
@@ -595,8 +626,14 @@ function gameLoop(now) {
     requestAnimationFrame(gameLoop);
 }
 
-// --- Hazard Spawning ---
-// Always spawn hazard when timer reaches zero, regardless of active effects
+// --- Mutation State ---
+snail.radioactiveShellCooldown = 0;
+snail.radioactiveShieldActive = false;
+snail.radioactiveShieldTimer = 0;
+snail.magnetCooldown = 0;
+snail.spikedShellSlowTimer = 0;
+
+// --- Snail Update ---
 function updateSnail(dt) {
     updatePetLevel();
     applyPetEffects();
@@ -613,6 +650,10 @@ function updateSnail(dt) {
         snail.slimeEfficiency = baseEfficiency;
 
         let speed = snail.speed;
+        // spikedShell slow effect
+        if (snail.unlockedMutations.includes('spikedShell') && snail.spikedShellSlowTimer > 0) {
+            speed *= 0.9;
+        }
         if (snail.turboActive) speed *= 2;
         // Apply all hazard effect modifiers
         activeHazardEffects.forEach(effect => {
@@ -637,6 +678,55 @@ function updateSnail(dt) {
         slimeGain *= snail.slimeGainMultiplier || 1;
         snail.distance += speed * efficiency * (dt / 1000);
         snail.slimePoints += slimeGain;
+    }
+
+    // --- Mutation Timers ---
+    // radioactiveShell: every 90s, activate shield for 10s
+    if (snail.unlockedMutations.includes('radioactiveShell')) {
+        if (!snail.radioactiveShellCooldown) snail.radioactiveShellCooldown = performance.now();
+        if (!snail.radioactiveShieldActive && performance.now() - snail.radioactiveShellCooldown > 90000) {
+            snail.radioactiveShieldActive = true;
+            snail.radioactiveShieldTimer = 10000;
+            snail.radioactiveShellCooldown = performance.now();
+            showAlert('Radioactive Shell: Shield active! Immune to hazards for 10s.', 'info');
+        }
+        if (snail.radioactiveShieldActive) {
+            snail.radioactiveShieldTimer -= dt;
+            if (snail.radioactiveShieldTimer <= 0) {
+                snail.radioactiveShieldActive = false;
+                showAlert('Radioactive Shell: Shield expired.', 'info');
+            }
+        }
+    }
+
+    // magnetAntennae: every 60s, attract random slime
+    if (snail.unlockedMutations.includes('magnetAntennae')) {
+        if (!snail.magnetCooldown) snail.magnetCooldown = performance.now();
+        if (performance.now() - snail.magnetCooldown > 60000) {
+            const magnetGain = Math.floor(1000 + Math.random() * 2000);
+            snail.slimePoints += magnetGain;
+            snail.magnetCooldown = performance.now();
+            showAlert(`Magnet Antennae: Magnetized slime attracted! +${magnetGain} slime.`, 'info');
+        }
+    }
+
+    // quantumTrail, miniWings, etc. (add later)
+
+    // spikedShell: slow effect timer
+    if (snail.spikedShellSlowTimer > 0) {
+        snail.spikedShellSlowTimer -= dt;
+        if (snail.spikedShellSlowTimer <= 0) {
+            snail.spikedShellSlowTimer = 0;
+            showAlert('Spiked Shell: Speed restored.', 'info');
+        }
+    }
+
+    // --- TurboGlands mutation ---
+    // turboGlands: turbo lasts 20% longer
+    if (snail.unlockedMutations.includes('turboGlands')) {
+        if (snail.turboActive && snail.turboTimer > 0) {
+            snail.turboTimer += dt * 0.2; // extend turbo duration by 20%
+        }
     }
 
     // Hazard timer logic
@@ -1318,7 +1408,7 @@ function drawGame() {
     ctx.restore();
 
     // Snail animation (walk, walk2, walk3, walk4, walk5, walk6 based on prestige)
-    // Prestige 0: walk, 1: walk2, 2: walk3, ..., 6+: walk6
+    // Prestige 0: walk, 1: walk2, 2: walk3, 3: walk4, 4: walk5, 5 and above: walk6
     let sprite;
     if (snail.prestige >= 6) {
         sprite = snailSprites.walk6;
@@ -1389,6 +1479,49 @@ function drawGame() {
         ctx.fillText(`Choose Pet`, canvas.width/2 + 66, canvas.height/2 - 24 + petYOffset);
         ctx.restore();
     }
+
+    // --- Mutation Animations ---
+    // radioactiveShell: shield effect
+    if (snail.unlockedMutations.includes('radioactiveShell') && snail.radioactiveShieldActive) {
+        ctx.save();
+        ctx.globalAlpha = 0.5 + 0.2 * Math.sin(performance.now()/200);
+        ctx.beginPath();
+        ctx.arc(canvas.width/2, canvas.height/2-16, 38 + 4*Math.sin(performance.now()/150), 0, 2*Math.PI);
+        ctx.strokeStyle = '#00e6ff';
+        ctx.lineWidth = 6;
+        ctx.stroke();
+        ctx.restore();
+    }
+    // magnetAntennae: magnet effect
+    if (snail.unlockedMutations.includes('magnetAntennae')) {
+        ctx.save();
+        ctx.globalAlpha = 0.25 + 0.15 * Math.sin(performance.now()/180);
+        ctx.beginPath();
+        ctx.arc(canvas.width/2, canvas.height/2, 48 + 8*Math.sin(performance.now()/120), 0, 2*Math.PI);
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+    }
+    // spikedShell: spikes effect
+    if (snail.unlockedMutations.includes('spikedShell')) {
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        ctx.strokeStyle = '#ff5722';
+        ctx.lineWidth =   4;
+        for (let i=0; i<8; i++) {
+            let angle = (Math.PI*2/8)*i;
+            let x1 = canvas.width/2 + Math.cos(angle)*32;
+            let y1 = canvas.height/2-16 + Math.sin(angle)*32;
+            let x2 = canvas.width/2 + Math.cos(angle)*44;
+            let y2 = canvas.height/2-16 + Math.sin(angle)*44;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
 }
 
 function updateChallengeUI(type, challenges, progressArr, completeArr) {
@@ -1449,17 +1582,25 @@ function prestige() {
         // Reset turbo counter
         snail.turboActive = false;
         snail.turboTimer = 0;
-        // Guarantee mutation unlock
-        const nextMutation = mutationDefs.find(mut => !snail.unlockedMutations.includes(mut.id));
-        if (nextMutation) {
-            snail.unlockedMutations.push(nextMutation.id);
-            showAlert(`Unlocked mutation: ${nextMutation.name}!`, 'success');
+        // Unlock a random mutation
+        const lockedMutations = mutationDefs
+            .map(mut => mut.id)
+            .filter(id => !snail.unlockedMutations.includes(id));
+        if (lockedMutations.length > 0) {
+            const randMutId = lockedMutations[Math.floor(Math.random() * lockedMutations.length)];
+            const randMut = mutationDefs.find(mut => mut.id === randMutId);
+            snail.unlockedMutations.push(randMutId);
+            showAlert(`Unlocked mutation: ${randMut.name}!`, 'success');
         }
-        // Guarantee pet unlock
-        const nextPet = petDefs.find(pet => !snail.unlockedPets.includes(pet.id));
-        if (nextPet) {
-            snail.unlockedPets.push(nextPet.id);
-            showAlert(`Unlocked pet: ${nextPet.name}!`, 'success');
+        // Unlock a random pet
+        const lockedPets = petDefs
+            .map(pet => pet.id)
+            .filter(id => !snail.unlockedPets.includes(id));
+        if (lockedPets.length > 0) {
+            const randPetId = lockedPets[Math.floor(Math.random() * lockedPets.length)];
+            const randPet = petDefs.find(pet => pet.id === randPetId);
+            snail.unlockedPets.push(randPetId);
+            showAlert(`Unlocked pet: ${randPet.name}!`, 'success');
         }
         showAlert(`Prestiged! You are now Prestige ${toRoman(snail.prestige)}!`, 'success');
         saveGame();
