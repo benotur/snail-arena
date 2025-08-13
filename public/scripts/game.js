@@ -37,7 +37,9 @@ let snail = {
     weeklyReset: 0,
     pet: null, // current pet id
     petLevel: 1,
-    unlockedPets: [] // array of pet ids
+    unlockedPets: [], // array of pet ids
+    dailyResetCount: 0, // add daily reset counter
+    weeklyResetCount: 0 // add weekly reset counter
 };
 // --- Challenge Definitions ---
 const challengeDefs = [
@@ -65,12 +67,14 @@ function resetDailyChallenges() {
     snail.dailyProgress = [0,0,0];
     snail.dailyComplete = [false,false,false];
     snail.dailyReset = getNextDailyReset();
+    snail.dailyResetCount = (snail.dailyResetCount || 0) + 1; // increment counter
 }
 function resetWeeklyChallenges() {
     snail.weeklyChallenges = pickChallenges('weekly', 5);
     snail.weeklyProgress = Array(5).fill(0);
     snail.weeklyComplete = Array(5).fill(false);
     snail.weeklyReset = getNextWeeklyReset();
+    snail.weeklyResetCount = (snail.weeklyResetCount || 0) + 1; // increment counter
 }
 
 function getNextDailyReset() {
@@ -566,6 +570,11 @@ function updateUI() {
     if (dailyResetDiv) dailyResetDiv.innerText = `Daily Reset: ${new Date(snail.dailyReset).toLocaleTimeString()}`;
     const weeklyResetDiv = document.getElementById('weekly-reset-time');
     if (weeklyResetDiv) weeklyResetDiv.innerText = `Weekly Reset: ${new Date(snail.weeklyReset).toLocaleTimeString()}`;
+    // Add reset counters to UI if elements exist
+    const dailyResetCountDiv = document.getElementById('daily-reset-count');
+    if (dailyResetCountDiv) dailyResetCountDiv.innerText = `Daily Resets: ${snail.dailyResetCount || 0}`;
+    const weeklyResetCountDiv = document.getElementById('weekly-reset-count');
+    if (weeklyResetCountDiv) weeklyResetCountDiv.innerText = `Weekly Resets: ${snail.weeklyResetCount || 0}`;
     // Update challenge progress bars
     updateChallengeUI('daily', snail.dailyChallenges, snail.dailyProgress, snail.dailyComplete);
     updateChallengeUI('weekly', snail.weeklyChallenges, snail.weeklyProgress, snail.weeklyComplete);
@@ -610,6 +619,101 @@ function updateUI() {
     }
 }
 
+function getCETTimeLeft(targetTimestamp) {
+    // CET = UTC+1 or UTC+2 (summer), but for simplicity, use UTC+2 as in original code
+    const now = new Date();
+    const utcNow = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const cetOffset = 2;
+    const cetNow = utcNow + cetOffset * 3600000;
+    const msLeft = targetTimestamp - (utcNow + cetOffset * 3600000);
+    if (msLeft <= 0) return "00:00:00";
+    const totalSeconds = Math.floor(msLeft / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (days > 0) {
+        return `${days}d ${hours.toString().padStart(2,"0")}:${minutes.toString().padStart(2,"0")}:${seconds.toString().padStart(2,"0")}`;
+    } else {
+        return `${hours.toString().padStart(2,"0")}:${minutes.toString().padStart(2,"0")}:${seconds.toString().padStart(2,"0")}`;
+    }
+}
+
+// --- Challenge UI Update ---
+function updateChallengeUI(type, challenges, progress, complete) {
+    // type: 'daily' or 'weekly'
+    let containerId = type === 'daily' ? 'dailyChallenge' : 'weeklyChallenge';
+    let container = document.getElementById(containerId);
+    if (!container) return;
+    if (!challenges || !challenges.length) {
+        container.innerHTML = `<span style="color:#aaa;">No ${type} challenges.</span>`;
+        return;
+    }
+    let html = '';
+    // Show cooldown timer above challenge count, gray, no label
+    let timer = '';
+    if (type === 'daily') {
+        timer = getCETTimeLeft(snail.dailyReset);
+        html += `<div style="font-size:13px;color:#888;margin-bottom:2px;">${timer}</div>`;
+        html += `<div style="font-size:12px;color:#ffd700;margin-bottom:4px;">${challenges.length} Daily Challenges</div>`;
+    } else {
+        timer = getCETTimeLeft(snail.weeklyReset);
+        html += `<div style="font-size:13px;color:#888;margin-bottom:2px;">${timer}</div>`;
+        html += `<div style="font-size:12px;color:#ffd700;margin-bottom:4px;">${challenges.length} Weekly Challenges</div>`;
+    }
+    challenges.forEach((ch, i) => {
+        let prog = Math.min(progress[i] || 0, ch.goal);
+        // Limit decimals for slime/distance
+        if (ch.id.includes('Slime')) prog = Number(prog).toFixed(2);
+        if (ch.id.includes('Distance')) prog = Number(prog).toFixed(2);
+        let pct = Math.floor((prog / ch.goal) * 100);
+        let done = complete[i];
+        html += `
+            <div style="margin-bottom:8px;">
+                <span style="color:${done ? '#00e676' : '#ffd700'};font-weight:bold;">${ch.desc}</span><br>
+                <span style="font-size:12px;color:#ccc;">${prog} / ${ch.goal}</span>
+                <div style="height:8px;width:100%;background:#222;border-radius:4px;overflow:hidden;margin-top:2px;">
+                    <div style="height:8px;width:${pct}%;background:${done ? '#00e676' : '#ffd700'};transition:width 0.2s;"></div>
+                </div>
+                ${done ? '<span style="font-size:11px;color:#00e676;">Complete!</span>' : ''}
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+// --- Hazard Timer Logic ---
+function updateHazardTimer() {
+    if (!window.lastHazardTime) window.lastHazardTime = performance.now();
+    let elapsed = (performance.now() - window.lastHazardTime) / 1000;
+    hazardTimer = Math.max(0, hazardInterval - elapsed);
+
+    // Always spawn hazard when timer reaches zero
+    if (hazardTimer <= 0 && !bossHazardActive) {
+        hazardCount++;
+        if (hazardCount % 5 === 0) {
+            spawnBossHazard();
+        } else {
+            spawnHazard();
+        }
+        window.lastHazardTime = performance.now();
+        hazardInterval = getRandomHazardInterval();
+        hazardTimer = hazardInterval;
+    }
+
+    // Boss hazard effect timer
+    if (bossHazardActive && currentBossHazard) {
+        if (!currentBossHazard.endTime) {
+            currentBossHazard.endTime = performance.now() + currentBossHazard.duration;
+        }
+        if (performance.now() > currentBossHazard.endTime) {
+            bossHazardActive = false;
+            currentBossHazard = null;
+        }
+    }
+}
+
+// --- Game Loop ---
 function gameLoop(now) {
     let dt = now - lastTime;
     lastTime = now;
@@ -623,6 +727,7 @@ function gameLoop(now) {
     updateSnail(dt);
     updateUI();
     drawGame();
+    updateHazardTimer();
     requestAnimationFrame(gameLoop);
 }
 
@@ -1070,6 +1175,9 @@ function saveGame() {
     saveData.pet = snail.pet;
     saveData.petLevel = snail.petLevel;
     saveData.unlockedPets = Array.isArray(snail.unlockedPets) ? snail.unlockedPets : [];
+    // Save reset counters
+    saveData.dailyResetCount = snail.dailyResetCount || 0;
+    saveData.weeklyResetCount = snail.weeklyResetCount || 0;
     // Save best distance if higher
     database.ref('users/' + username).once('value').then(snapshot => {
         const prev = snapshot.val();
@@ -1127,6 +1235,8 @@ function loadGame() {
             snail.pet = loaded.pet || null;
             snail.petLevel = Number(loaded.petLevel) || 1;
             snail.unlockedPets = Array.isArray(loaded.unlockedPets) ? loaded.unlockedPets : [];
+            snail.dailyResetCount = loaded.dailyResetCount || 0;
+            snail.weeklyResetCount = loaded.weeklyResetCount || 0;
         }
     });
 }
@@ -1475,7 +1585,7 @@ function drawGame() {
         ctx.save();
         ctx.font = 'bold 13px monospace';
         ctx.fillStyle = '#00e6ff';
-        ctx.textAlign = 'center';
+                      ctx.textAlign = 'center';
         ctx.fillText(`Choose Pet`, canvas.width/2 + 66, canvas.height/2 - 24 + petYOffset);
         ctx.restore();
     }
@@ -1508,7 +1618,7 @@ function drawGame() {
         ctx.save();
         ctx.globalAlpha = 0.7;
         ctx.strokeStyle = '#ff5722';
-        ctx.lineWidth =   4;
+        ctx.lineWidth =         4;
         for (let i=0; i<8; i++) {
             let angle = (Math.PI*2/8)*i;
             let x1 = canvas.width/2 + Math.cos(angle)*32;
@@ -1522,90 +1632,428 @@ function drawGame() {
         }
         ctx.restore();
     }
-}
 
-function updateChallengeUI(type, challenges, progressArr, completeArr) {
-    // Defensive: only update if challenge window exists
-    const divId = type === 'daily' ? 'dailyChallenge' : 'weeklyChallenge';
-    const challengeDiv = document.getElementById(divId);
-    if (!challengeDiv) return;
-    let html = '';
-    // Add reset counter at the top
-    if (type === 'daily') {
-        html += `<div style="font-size:12px;color:#ffd700;margin-bottom:6px;">Resets in: <span style="color:#00e676;">${getTimeLeft(snail.dailyReset)}</span></div>`;
-    } else {
-        html += `<div style="font-size:12px;color:#ffd700;margin-bottom:6px;">Resets in: <span style="color:#00e6ff;">${getTimeLeft(snail.weeklyReset)}</span></div>`;
-    }
-    if (challenges && challenges.length) {
-        challenges.forEach((ch, i) => {
-            html += `<div style='margin-bottom:2px;'>${i+1}. <span style='color:#ffd700;'>${ch.desc}</span><br>Progress: <span style='color:#00e676;'>${Number(progressArr[i]).toFixed(2)}/${Number(ch.goal).toFixed(2)}</span> ${completeArr[i] ? "<span style='color:#00e676;'>(Complete!)</span>" : ''}</div>`;
+    // Draw equipped mutations below snail/meters
+    const eq = snail.equippedMutations || [];
+    if (eq.length > 0) {
+        // Move circles lower
+        const y = canvas.height/2 + 130; // was +110
+        const spacing = 55;
+        const startX = canvas.width/2 - ((eq.length-1)/2)*spacing;
+        eq.forEach((mutId, idx) => {
+            const mutIdx = mutationDefs.findIndex(m => m.id === mutId);
+            // Make circles darker
+            const color = "#222"; // dark gray
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(startX + idx*spacing, y, 22, 0, 2*Math.PI);
+            ctx.fillStyle = color;
+            ctx.globalAlpha = 0.92;
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#111';
+            ctx.stroke();
+            // Draw mutation index
+            ctx.font = 'bold 18px monospace';
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(mutIdx+1, startX + idx*spacing, y);
+            // Draw cooldown timer (if any) with swaying white color
+            const state = snail.mutationCooldowns[idx] || {};
+            if (state.cooldown > 0 || state.active > 0) {
+                const timer = Math.ceil((state.active > 0 ? state.active : state.cooldown) / 1000);
+                // Swaying white color
+                const sway = Math.floor(220 + 20 * Math.sin(performance.now()/200));
+                ctx.font = 'bold 13px monospace';
+                ctx.fillStyle = `rgb(${sway},${sway},${sway})`;
+                ctx.fillText(`${timer}s`, startX + idx*spacing, y + 28);
+            }
+            ctx.restore();
         });
-    } else {
-        html += `<div style='margin-bottom:2px;color:#ccc;'>No ${type} challenges found.</div>`;
-    }
-    challengeDiv.innerHTML = html;
-}
-
-// Helper for time left formatting
-function getTimeLeft(resetTimestamp) {
-    const now = Date.now();
-    let ms = Math.max(0, resetTimestamp - now);
-    let sec = Math.floor(ms / 1000) % 60;
-    let min = Math.floor(ms / 60000) % 60;
-    let hr = Math.floor(ms / 3600000);
-    if (hr > 0) {
-        return `${hr}h ${min}m ${sec}s`;
-    } else if (min > 0) {
-        return `${min}m ${sec}s`;
-    } else {
-        return `${sec}s`;
+        // Store coords for canvas click handler (for "+" logic)
+        window._mutationSlotCoords = eq.map((mutId, idx) => ({
+            x: startX + idx*spacing,
+            y: y,
+            r: 24
+        }));
     }
 }
 
-// Add prestige function
-function prestige() {
-    // Requirements: enough slime and level 120+
-    if (snail.slimePoints >= getPrestigeCost() && snail.level >= 120) {
-        snail.prestige += 1;
-        snail.distance = 0;
-        snail.slimePoints = 0; // Reset slime currency
-        snail.level = 1;
-        snail.checkpoint = 0;
-        // Reset upgrades
-        upgradeDefs.forEach(upg => {
-            upg.purchased = 0;
-            upg.cost = upg.baseCost;
+// --- Mutation Colors (same as mutation book) ---
+const mutationColors = [
+    '#ffb300', '#00bcd4', '#8bc34a', '#e91e63', '#9c27b0', '#ff5722', '#03a9f4', '#cddc39', '#f44336', '#009688',
+    '#ffc107', '#673ab7', '#4caf50', '#ff9800', '#2196f3', '#607d8b', '#795548', '#00e676', '#e040fb', '#d50000'
+];
+
+// --- Equipped Mutations State ---
+snail.equippedMutations = [null, null, null]; // 3 slots, null if not equipped
+
+// --- Mutation Cooldown State ---
+if (!snail.mutationCooldowns) snail.mutationCooldowns = [{}, {}, {}]; // {cooldown: ms, active: ms}
+
+// --- Mutation Equip Menu ---
+window.showMutationEquipMenu = function(slotIdx = null) {
+    let menu = document.getElementById('mutation-equip-menu');
+    if (!menu) {
+        menu = document.createElement('div');
+        menu.id = 'mutation-equip-menu';
+        menu.style = `
+            position:fixed;left:50%;top:56%;transform:translate(-50%,0);
+            z-index:400;background:rgba(20,20,20,0.98);border-radius:18px;
+            padding:18px 24px;box-shadow:0 4px 24px #000;min-width:220px;
+            max-width:340px;max-height:60vh;overflow-y:auto;text-align:center;
+        `;
+        document.body.appendChild(menu);
+    }
+    menu.innerHTML = `<div style="font-size:20px;font-weight:bold;color:#ffd700;margin-bottom:12px;">Equip Mutation</div>`;
+    menu.innerHTML += `<div id="mutation-equip-list" style="display:flex;justify-content:center;gap:18px;margin-bottom:14px;"></div>`;
+    const list = menu.querySelector('#mutation-equip-list');
+    mutationDefs.forEach((mut, i) => {
+        if (!snail.unlockedMutations.includes(mut.id)) return;
+        const color = mutationColors[i % mutationColors.length];
+        const equippedIdx = snail.equippedMutations.indexOf(mut.id);
+        const div = document.createElement('div');
+        div.style = `
+            width:48px;height:48px;border-radius:50%;background:${color};
+            display:flex;align-items:center;justify-content:center;cursor:pointer;
+            box-shadow:0 2px 8px #000;position:relative;border:${equippedIdx !== -1 ? '3px solid #ffd700' : '2px solid #222'};
+            transition:border 0.2s;
+        `;
+        div.title = mut.name;
+        div.innerHTML = `<span style="color:#fff;font-size:18px;font-weight:bold;">${i+1}</span>`;
+        if (equippedIdx !== -1) {
+            div.innerHTML += `<span style="position:absolute;bottom:2px;right:6px;font-size:12px;color:#ffd700;">✔</span>`;
+        }
+        div.onclick = function() {
+            if (equippedIdx !== -1) {
+                snail.equippedMutations[equippedIdx] = null;
+                snail.mutationCooldowns[equippedIdx] = {};
+            } else if (slotIdx !== null) {
+                snail.equippedMutations[slotIdx] = mut.id;
+                snail.mutationCooldowns[slotIdx] = {};
+            }
+            menu.style.display = 'none';
+            updateUI();
+            saveGame();
+        };
+        list.appendChild(div);
+    });
+    menu.innerHTML += `<button id="close-mutation-equip-menu" style="margin-top:18px;padding:7px 18px;border-radius:8px;background:#222;color:#ffd700;font-size:15px;border:none;cursor:pointer;">Close</button>`;
+    menu.querySelector('#close-mutation-equip-menu').onclick = function() {
+        menu.style.display = 'none';
+    };
+    menu.style.display = 'block';
+};
+
+// --- Add button to open equip menu (optional, can remove if only using "+" on circles) ---
+window.addEventListener('DOMContentLoaded', function() {
+    // ...existing code...
+    let equipBtn = document.getElementById('open-mutation-equip');
+    if (!equipBtn) {
+        equipBtn = document.createElement('button');
+        equipBtn.id = 'open-mutation-equip';
+        equipBtn.innerText = '⚡ Equip Mutations';
+        equipBtn.style = `
+            position:fixed;left:50%;top:68%;transform:translate(-50%,0); /* was 64% */
+            z-index:399;padding:8px 18px;border-radius:18px;background:#222;
+            color:#ffd700;font-size:16px;border:none;cursor:pointer;box-shadow:0 2px 8px #000;
+        `;
+        document.body.appendChild(equipBtn);
+    }
+    equipBtn.onclick = function() {
+        window.showMutationEquipMenu();
+    };
+    // ...existing code...
+});
+
+// --- Mutation Cooldown Logic ---
+// Example for radioactiveShell (slot-based)
+function updateMutationCooldowns(dt) {
+    snail.equippedMutations.forEach((mutId, idx) => {
+        if (!mutId) return;
+        const mut = mutationDefs.find(m => m.id === mutId);
+        const state = snail.mutationCooldowns[idx] || {};
+        // Example: radioactiveShell
+        if (mutId === 'radioactiveShell') {
+            if (!state.cooldown && !state.active) {
+                state.cooldown = 90000; // 90s cooldown
+                state.active = 0;
+            }
+            if (state.cooldown > 0) {
+                state.cooldown -= dt;
+                if (state.cooldown <= 0) {
+                    state.cooldown = 0;
+                    state.active = 10000; // 10s active
+                    showAlert('Radioactive Shell: Shield active! Immune to hazards for 10s.', 'info');
+                }
+            } else if (state.active > 0) {
+                state.active -= dt;
+                if (state.active <= 0) {
+                    state.active = 0;
+                    state.cooldown = 90000;
+                    showAlert('Radioactive Shell: Shield expired.', 'info');
+                }
+            }
+        }
+        // Add similar logic for other mutations with cooldowns/active durations
+        snail.mutationCooldowns[idx] = state;
+    });
+}
+
+// --- Snail Update ---
+function updateSnail(dt) {
+    updatePetLevel();
+    applyPetEffects();
+    // Restore movement after movementDisabledUntil
+    if (snail.movementDisabledUntil && performance.now() > snail.movementDisabledUntil) {
+        snail.isMoving = true;
+        snail.movementDisabledUntil = null;
+    }
+    if (snail.isMoving) {
+        // Calculate base speed and efficiency from upgrades and prestige
+        let baseSpeed = 1 + snail.prestige * 0.2 + (upgradeDefs.find(u => u.id === 'speedShell')?.purchased || 0) * 0.5;
+        let baseEfficiency = 1 + snail.prestige * 0.1 + (upgradeDefs.find(u => u.id === 'slimeBooster')?.purchased || 0) * 0.5;
+        snail.speed = baseSpeed;
+        snail.slimeEfficiency = baseEfficiency;
+
+        let speed = snail.speed;
+        // spikedShell slow effect
+        if (snail.unlockedMutations.includes('spikedShell') && snail.spikedShellSlowTimer > 0) {
+            speed *= 0.9;
+        }
+        if (snail.turboActive) speed *= 2;
+        // Apply all hazard effect modifiers
+        activeHazardEffects.forEach(effect => {
+            switch (effect.type) {
+                case 'salt':
+                    speed *= 0.5;
+                    break;
+                case 'ants':
+                    speed *= 0.7;
+                    break;
+                case 'shadow':
+                    speed *= 0.6;
+                    break;
+                case 'spikedShell':
+                    speed *= 0.9;
+                    break;
+            }
         });
-        // Reset stats to base, but apply prestige boost
-        snail.speed = 1 + snail.prestige * 0.2;
-        snail.slimeEfficiency = 1 + snail.prestige * 0.1;
-        // Reset turbo counter
-        snail.turboActive = false;
-        snail.turboTimer = 0;
-        // Unlock a random mutation
-        const lockedMutations = mutationDefs
-            .map(mut => mut.id)
-            .filter(id => !snail.unlockedMutations.includes(id));
-        if (lockedMutations.length > 0) {
-            const randMutId = lockedMutations[Math.floor(Math.random() * lockedMutations.length)];
-            const randMut = mutationDefs.find(mut => mut.id === randMutId);
-            snail.unlockedMutations.push(randMutId);
-            showAlert(`Unlocked mutation: ${randMut.name}!`, 'success');
+        speed *= snail.speedMultiplier || 1;
+        let efficiency = snail.slimeEfficiency;
+        let slimeGain = speed * efficiency * (dt / 1000);
+        slimeGain *= snail.slimeGainMultiplier || 1;
+        snail.distance += speed * efficiency * (dt / 1000);
+        snail.slimePoints += slimeGain;
+    }
+
+    // --- Mutation Timers ---
+    // radioactiveShell: every 90s, activate shield for 10s
+    if (snail.unlockedMutations.includes('radioactiveShell')) {
+        if (!snail.radioactiveShellCooldown) snail.radioactiveShellCooldown = performance.now();
+        if (!snail.radioactiveShieldActive && performance.now() - snail.radioactiveShellCooldown > 90000) {
+            snail.radioactiveShieldActive = true;
+            snail.radioactiveShieldTimer = 10000;
+            snail.radioactiveShellCooldown = performance.now();
+            showAlert('Radioactive Shell: Shield active! Immune to hazards for 10s.', 'info');
         }
-        // Unlock a random pet
-        const lockedPets = petDefs
-            .map(pet => pet.id)
-            .filter(id => !snail.unlockedPets.includes(id));
-        if (lockedPets.length > 0) {
-            const randPetId = lockedPets[Math.floor(Math.random() * lockedPets.length)];
-            const randPet = petDefs.find(pet => pet.id === randPetId);
-            snail.unlockedPets.push(randPetId);
-            showAlert(`Unlocked pet: ${randPet.name}!`, 'success');
+        if (snail.radioactiveShieldActive) {
+            snail.radioactiveShieldTimer -= dt;
+            if (snail.radioactiveShieldTimer <= 0) {
+                snail.radioactiveShieldActive = false;
+                showAlert('Radioactive Shell: Shield expired.', 'info');
+            }
         }
-        showAlert(`Prestiged! You are now Prestige ${toRoman(snail.prestige)}!`, 'success');
-        saveGame();
-        updateUI();
-    } else {
-        showAlert('Prestige requirements not met!', 'error');
+    }
+
+    // magnetAntennae: every 60s, attract random slime
+    if (snail.unlockedMutations.includes('magnetAntennae')) {
+        if (!snail.magnetCooldown) snail.magnetCooldown = performance.now();
+        if (performance.now() - snail.magnetCooldown > 60000) {
+            const magnetGain = Math.floor(1000 + Math.random() * 2000);
+            snail.slimePoints += magnetGain;
+            snail.magnetCooldown = performance.now();
+            showAlert(`Magnet Antennae: Magnetized slime attracted! +${magnetGain} slime.`, 'info');
+        }
+    }
+
+    // quantumTrail, miniWings, etc. (add later)
+
+    // spikedShell: slow effect timer
+    if (snail.spikedShellSlowTimer > 0) {
+        snail.spikedShellSlowTimer -= dt;
+        if (snail.spikedShellSlowTimer <= 0) {
+            snail.spikedShellSlowTimer = 0;
+            showAlert('Spiked Shell: Speed restored.', 'info');
+        }
+    }
+
+    // --- TurboGlands mutation ---
+    // turboGlands: turbo lasts 20% longer
+    if (snail.unlockedMutations.includes('turboGlands')) {
+        if (snail.turboActive && snail.turboTimer > 0) {
+            snail.turboTimer += dt * 0.2; // extend turbo duration by 20%
+        }
+    }
+
+    // Hazard timer logic
+    if (!window.lastHazardTime) window.lastHazardTime = performance.now();
+    let elapsed = (performance.now() - window.lastHazardTime) / 1000;
+    hazardTimer = Math.max(0, hazardInterval - elapsed);
+
+    // Always spawn hazard when timer reaches zero
+    if (hazardTimer <= 0 && !bossHazardActive) {
+        hazardCount++;
+        if (hazardCount % 5 === 0) {
+            spawnBossHazard();
+        } else {
+            spawnHazard();
+        }
+        window.lastHazardTime = performance.now();
+        hazardInterval = getRandomHazardInterval();
+        hazardTimer = hazardInterval;
+    }
+
+    // Boss hazard effect timer
+    if (bossHazardActive && currentBossHazard) {
+        if (!currentBossHazard.endTime) {
+            currentBossHazard.endTime = performance.now() + currentBossHazard.duration;
+        }
+        if (performance.now() > currentBossHazard.endTime) {
+            bossHazardActive = false;
+            currentBossHazard = null;
+        }
+    }
+
+    if (snail.turboActive) {
+        snail.turboTimer -= dt;
+        if (snail.turboTimer <= 0) {
+            snail.turboActive = false;
+        }
+    }
+
+    // Check for hazard collisions/effects
+    hazards.forEach(hazard => {
+        if (!hazard.active) return;
+        if (Math.abs(snail.distance - hazard.x) < 50) {
+            applyHazardEffect(hazard);
+            hazard.active = false;
+        }
+    });
+
+    // Handle hazard effect timers
+    clearExpiredHazardEffects();
+
+    // Checkpoint logic
+    snail.checkpoint = Math.floor(snail.distance / checkpointDistance);
+    // Level logic
+    snail.level = Math.floor(snail.distance / 1000) + 1;
+
+    // Challenge progress (live update)
+    let changed = false;
+    // Daily
+    snail.dailyChallenges.forEach((ch, i) => {
+        if (snail.dailyComplete[i]) return;
+        switch (ch.id) {
+            case 'collectSlimeDaily':
+                if (snail.slimePoints > snail.dailyProgress[i]) {
+                    snail.dailyProgress[i] = Math.min(snail.slimePoints, ch.goal);
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'reachDistanceDaily':
+                if (snail.distance > snail.dailyProgress[i]) {
+                    snail.dailyProgress[i] = Math.min(snail.distance, ch.goal);
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'prestigeDaily':
+                if (snail.prestige > snail.dailyProgress[i]) {
+                    snail.dailyProgress[i] = Math.min(snail.prestige, ch.goal);
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'unlockMutationDaily':
+                if (snail.unlockedMutations.length > snail.dailyProgress[i]) {
+                    snail.dailyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
+                    if (snail.dailyProgress[i] >= ch.goal) {
+                        snail.dailyComplete[i] = true;
+                        snail.slimePoints += 5000;
+                        showAlert('Daily challenge complete! +5000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+        }
+    });
+    // Weekly
+    snail.weeklyChallenges.forEach((ch, i) => {
+        if (snail.weeklyComplete[i]) return;
+        switch (ch.id) {
+            case 'collectSlimeWeekly':
+                if (snail.slimePoints > snail.weeklyProgress[i]) {
+                    snail.weeklyProgress[i] = Math.min(snail.slimePoints, ch.goal);
+                    if (snail.weeklyProgress[i] >= ch.goal) {
+                        snail.weeklyComplete[i] = true;
+                        snail.slimePoints += 25000;
+                        showAlert('Weekly challenge complete! +25000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'reachDistanceWeekly':
+                if (snail.distance > snail.weeklyProgress[i]) {
+                    snail.weeklyProgress[i] = Math.min(snail.distance, ch.goal);
+                    if (snail.weeklyProgress[i] >= ch.goal) {
+                        snail.weeklyComplete[i] = true;
+                        snail.slimePoints += 25000;
+                        showAlert('Weekly challenge complete! +25000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'prestigeWeekly':
+                if (snail.prestige > snail.weeklyProgress[i]) {
+                    snail.weeklyProgress[i] = Math.min(snail.prestige, ch.goal);
+                    if (snail.weeklyProgress[i] >= ch.goal) {
+                        snail.weeklyComplete[i] = true;
+                        snail.slimePoints += 25000;
+                        showAlert('Weekly challenge complete! +25000 slime', 'success');
+                    }
+                    changed = true;
+                }
+                break;
+            case 'unlockMutationWeekly':
+                if (snail.unlockedMutations.length > snail.weeklyProgress[i]) {
+                    snail.weeklyProgress[i] = Math.min(snail.unlockedMutations.length, ch.goal);
+                    if (snail.weeklyProgress[i] >= ch.goal) snail.weeklyComplete[i] = true;
+                    changed = true;
+                }
+                break;
+        }
+    });
+    if (changed) saveGame();
+    // Remove expired hazards
+    hazards = hazards.filter(h => h.active !== false);
+
+    // Remove currentHazard if effect is over
+    if (currentHazard && performance.now() - currentHazard.created > currentHazard.duration) {
+        currentHazard = null;
     }
 }
